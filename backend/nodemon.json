@@ -1,0 +1,23 @@
+{
+    "delay": 2000,
+    "verbose": true,
+    "ignore": [
+        "*.test.js",
+        "*.spec.js",
+        "node_modules/**",
+        ".git",
+        "*.md"
+    ],
+    "watch": [
+        "src"
+    ],
+    "ext": "js,json",
+    "execMap": {
+        "js": "node"
+    },
+    "events": {
+        "restart": "echo ⚡ Reiniciando servidor...",
+        "crash": "echo ❌ Servidor caído - esperando cambios..."
+    },
+    "restartable": "rs"
+}
