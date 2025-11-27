@@ -49,6 +49,7 @@ export default function TransactionsPage() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState("Todos");
+  const [currencyFilter, setCurrencyFilter] = useState("Todas");
 
   useEffect(() => {
     loadData();
@@ -56,7 +57,7 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     applyFilter();
-  }, [transactions, filter, searchTerm]);
+  }, [transactions, filter, currencyFilter, searchTerm]);
 
   const loadData = async () => {
     try {
@@ -83,6 +84,13 @@ export default function TransactionsPage() {
       filtered = filtered.filter((t) => t.type === filter);
     }
 
+    // Filtrar por moneda
+    if (currencyFilter !== "Todas") {
+      filtered = filtered.filter(
+        (t) => (t.currency || "ARS") === currencyFilter
+      );
+    }
+
     // Filtrar por búsqueda
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
@@ -103,6 +111,13 @@ export default function TransactionsPage() {
   const handleFilterChange = (event, newFilter) => {
     if (newFilter !== null) {
       setFilter(newFilter);
+      setPage(0);
+    }
+  };
+
+  const handleCurrencyFilterChange = (event, newFilter) => {
+    if (newFilter !== null) {
+      setCurrencyFilter(newFilter);
       setPage(0);
     }
   };
@@ -179,7 +194,7 @@ export default function TransactionsPage() {
     page * rowsPerPage + rowsPerPage
   );
 
-  // Calcular totales del mes actual
+  // Calcular totales del mes actual separados por moneda
   const now = new Date();
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
@@ -192,18 +207,25 @@ export default function TransactionsPage() {
         transactionDate.getFullYear() === currentYear
       );
     })
-    .reduce(
-      (acc, t) => {
-        if (t.type === "Ingreso") {
-          acc.ingresos += parseFloat(t.amount);
-        } else {
-          acc.egresos += parseFloat(t.amount);
-        }
-        return acc;
-      },
-      { ingresos: 0, egresos: 0 }
-    );
-  const balance = totals.ingresos - totals.egresos;
+    .reduce((acc, t) => {
+      const currency = t.currency || "ARS";
+      const amount = parseFloat(t.amount);
+
+      if (!acc[currency]) {
+        acc[currency] = { ingresos: 0, egresos: 0 };
+      }
+
+      if (t.type === "Ingreso") {
+        acc[currency].ingresos += amount;
+      } else {
+        acc[currency].egresos += amount;
+      }
+      return acc;
+    }, {});
+
+  const getCurrencySymbol = (currency) => {
+    return currency === "USD" ? "U$S" : "$";
+  };
 
   if (loading) {
     return (
@@ -250,47 +272,157 @@ export default function TransactionsPage() {
         )}
 
         {/* Tarjetas de resumen */}
-        <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
-          <Paper sx={{ flex: 1, p: 2 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Ingresos del Mes
-            </Typography>
-            <Typography variant="h5" color="success.main" fontWeight={600}>
-              ${" "}
-              {totals.ingresos.toLocaleString("es-AR", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </Typography>
-          </Paper>
-          <Paper sx={{ flex: 1, p: 2 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Egresos del Mes
-            </Typography>
-            <Typography variant="h5" color="error.main" fontWeight={600}>
-              ${" "}
-              {totals.egresos.toLocaleString("es-AR", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </Typography>
-          </Paper>
-          <Paper sx={{ flex: 1, p: 2 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Balance del Mes
-            </Typography>
-            <Typography
-              variant="h5"
-              color={balance >= 0 ? "success.main" : "error.main"}
-              fontWeight={600}
-            >
-              ${" "}
-              {balance.toLocaleString("es-AR", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </Typography>
-          </Paper>
+        <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
+          {Object.keys(totals).length > 0 ? (
+            Object.entries(totals).map(([currency, values]) => {
+              const balance = values.ingresos - values.egresos;
+              const isUSD = currency === "USD";
+              const bgColor = isUSD
+                ? "rgba(0, 123, 255, 0.04)"
+                : "rgba(76, 175, 80, 0.04)";
+              const borderColor = isUSD
+                ? "rgba(0, 123, 255, 0.2)"
+                : "rgba(76, 175, 80, 0.2)";
+
+              return (
+                <Box
+                  key={currency}
+                  sx={{ display: "flex", gap: 2, flex: "1 1 100%" }}
+                >
+                  <Paper
+                    sx={{
+                      flex: 1,
+                      p: 2,
+                      bgcolor: bgColor,
+                      border: `1px solid ${borderColor}`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <Box>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        gutterBottom
+                      >
+                        Ingresos ({currency})
+                      </Typography>
+                      <Typography
+                        variant="h5"
+                        color="success.main"
+                        fontWeight={600}
+                      >
+                        {getCurrencySymbol(currency)}{" "}
+                        {values.ingresos.toLocaleString("es-AR", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </Typography>
+                    </Box>
+                    <TrendingUpOutlined
+                      sx={{
+                        color: "success.main",
+                        fontSize: 40,
+                      }}
+                    />
+                  </Paper>
+                  <Paper
+                    sx={{
+                      flex: 1,
+                      p: 2,
+                      bgcolor: bgColor,
+                      border: `1px solid ${borderColor}`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <Box>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        gutterBottom
+                      >
+                        Egresos ({currency})
+                      </Typography>
+                      <Typography
+                        variant="h5"
+                        color="error.main"
+                        fontWeight={600}
+                      >
+                        {getCurrencySymbol(currency)}{" "}
+                        {values.egresos.toLocaleString("es-AR", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </Typography>
+                    </Box>
+                    <TrendingDownOutlined
+                      sx={{
+                        color: "error.main",
+                        fontSize: 40,
+                      }}
+                    />
+                  </Paper>
+                  <Paper
+                    sx={{
+                      flex: 1,
+                      p: 2,
+                      bgcolor: bgColor,
+                      border: `1px solid ${borderColor}`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <Box>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        gutterBottom
+                      >
+                        Balance ({currency})
+                      </Typography>
+                      <Typography
+                        variant="h5"
+                        color={balance >= 0 ? "success.main" : "error.main"}
+                        fontWeight={600}
+                      >
+                        {getCurrencySymbol(currency)}{" "}
+                        {balance.toLocaleString("es-AR", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: "50%",
+                        bgcolor: balance >= 0 ? "success.main" : "error.main",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "white",
+                        fontSize: 20,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {balance >= 0 ? "+" : "-"}
+                    </Box>
+                  </Paper>
+                </Box>
+              );
+            })
+          ) : (
+            <Paper sx={{ flex: 1, p: 2, textAlign: "center" }}>
+              <Typography variant="body2" color="text.secondary">
+                No hay transacciones este mes
+              </Typography>
+            </Paper>
+          )}
         </Box>
 
         {/* Filtros */}
@@ -334,6 +466,23 @@ export default function TransactionsPage() {
             <ToggleButton value="Egreso" aria-label="egresos">
               <TrendingDownOutlined sx={{ mr: 1 }} fontSize="small" />
               Egresos
+            </ToggleButton>
+          </ToggleButtonGroup>
+          <ToggleButtonGroup
+            value={currencyFilter}
+            exclusive
+            onChange={handleCurrencyFilterChange}
+            aria-label="filtro de moneda"
+            size="small"
+          >
+            <ToggleButton value="Todas" aria-label="todas">
+              Todas
+            </ToggleButton>
+            <ToggleButton value="ARS" aria-label="pesos">
+              🇦🇷 Pesos
+            </ToggleButton>
+            <ToggleButton value="USD" aria-label="dolares">
+              🇺🇸 Dólares
             </ToggleButton>
           </ToggleButtonGroup>
         </Box>
@@ -409,7 +558,7 @@ export default function TransactionsPage() {
                           : "error.main"
                       }
                     >
-                      ${" "}
+                      {getCurrencySymbol(transaction.currency || "ARS")}{" "}
                       {parseFloat(transaction.amount).toLocaleString("es-AR", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
