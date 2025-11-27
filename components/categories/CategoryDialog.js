@@ -14,6 +14,8 @@ import {
   MenuItem,
   FormHelperText,
   IconButton,
+  FormControlLabel,
+  Checkbox,
 } from "@mui/material";
 import { CloseOutlined } from "@mui/icons-material";
 
@@ -26,6 +28,7 @@ export default function CategoryDialog({
   const [formData, setFormData] = useState({
     name: "",
     type: "Egreso",
+    isRecurring: false,
   });
   const [errors, setErrors] = useState({});
 
@@ -35,20 +38,25 @@ export default function CategoryDialog({
       setFormData({
         name: category.name || "",
         type: category.type || "Egreso",
+        isRecurring: category.isRecurring || false,
       });
     } else {
       // Modo creación
       setFormData({
         name: "",
         type: "Egreso",
+        isRecurring: false,
       });
     }
     setErrors({});
   }, [category, open]);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    const { name, value, type, checked } = e.target;
+    setFormData({
+      ...formData,
+      [name]: type === "checkbox" ? checked : value,
+    });
     // Limpiar error del campo al escribir
     if (errors[name]) {
       setErrors({ ...errors, [name]: "" });
@@ -76,6 +84,7 @@ export default function CategoryDialog({
     const dataToSend = {
       name: formData.name.trim(),
       type: formData.type,
+      isRecurring: formData.isRecurring,
     };
 
     onSave(dataToSend);
@@ -122,6 +131,17 @@ export default function CategoryDialog({
           </Select>
           {errors.type && <FormHelperText>{errors.type}</FormHelperText>}
         </FormControl>
+
+        <FormControlLabel
+          control={
+            <Checkbox
+              name="isRecurring"
+              checked={formData.isRecurring}
+              onChange={handleChange}
+            />
+          }
+          label="Gasto/Ingreso fijo mensual"
+        />
       </DialogContent>
 
       <DialogActions sx={{ px: 3, py: 2 }}>

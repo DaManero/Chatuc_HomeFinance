@@ -20,6 +20,7 @@ import {
   TrendingUpOutlined,
   PeopleOutlined,
   LogoutOutlined,
+  CalendarMonthOutlined,
 } from "@mui/icons-material";
 import { useAuth } from "@/context/AuthContext";
 
@@ -32,6 +33,11 @@ const menuItems = [
     path: "/transactions",
   },
   { text: "Categorías", icon: <CategoryOutlined />, path: "/categories" },
+  {
+    text: "Gastos Fijos",
+    icon: <CalendarMonthOutlined />,
+    path: "/gastos-fijos",
+  },
   { text: "Préstamos", icon: <AccountBalanceOutlined />, path: "/loans" },
   { text: "Inversiones", icon: <TrendingUpOutlined />, path: "/investments" },
   {

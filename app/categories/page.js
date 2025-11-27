@@ -21,6 +21,7 @@ import {
   TablePagination,
   TextField,
   InputAdornment,
+  Switch,
 } from "@mui/material";
 import {
   AddOutlined,
@@ -60,6 +61,7 @@ export default function CategoriesPage() {
     try {
       setLoading(true);
       const data = await categoryService.getCategories();
+      console.log("Categorías cargadas:", data);
       setCategories(data);
       setError(null);
     } catch (err) {
@@ -127,6 +129,26 @@ export default function CategoriesPage() {
           err.response?.data?.message ||
           "Error al guardar categoría"
       );
+    }
+  };
+
+  const handleToggleRecurring = async (category) => {
+    if (!isAdmin()) {
+      alert("No tienes permisos para modificar categorías");
+      return;
+    }
+
+    try {
+      await categoryService.updateCategory(category.id, {
+        name: category.name,
+        type: category.type,
+        isRecurring: !category.isRecurring,
+      });
+      loadCategories();
+      setError(null);
+    } catch (err) {
+      console.error("Error al actualizar categoría:", err);
+      setError(err.response?.data?.error || "Error al actualizar categoría");
     }
   };
 
@@ -265,6 +287,7 @@ export default function CategoriesPage() {
               <TableRow>
                 <TableCell>Nombre</TableCell>
                 <TableCell>Tipo</TableCell>
+                <TableCell>Recurrente</TableCell>
                 <TableCell>Fecha de Creación</TableCell>
                 {isAdmin() && <TableCell>Acciones</TableCell>}
               </TableRow>
@@ -290,6 +313,14 @@ export default function CategoriesPage() {
                       color={category.type === "Ingreso" ? "success" : "error"}
                       size="small"
                       variant="outlined"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Switch
+                      checked={category.isRecurring || false}
+                      onChange={() => handleToggleRecurring(category)}
+                      disabled={!isAdmin()}
+                      size="small"
                     />
                   </TableCell>
                   <TableCell>

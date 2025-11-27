@@ -2,7 +2,7 @@ import { models } from "../models/index.js";
 
 export async function createCategory(req, res) {
   try {
-    const { name, type } = req.body;
+    const { name, type, isRecurring } = req.body;
     const userId = req.user.userId;
 
     if (!name || !type) {
@@ -18,6 +18,7 @@ export async function createCategory(req, res) {
     const category = await models.Category.create({
       name,
       type,
+      isRecurring: isRecurring || false,
       userId,
     });
 
@@ -53,7 +54,7 @@ export async function getCategories(req, res) {
 export async function updateCategory(req, res) {
   try {
     const { id } = req.params;
-    const { name, type } = req.body;
+    const { name, type, isRecurring } = req.body;
     const userId = req.user.userId;
 
     const category = await models.Category.findOne({
@@ -72,6 +73,7 @@ export async function updateCategory(req, res) {
 
     if (name) category.name = name;
     if (type) category.type = type;
+    if (isRecurring !== undefined) category.isRecurring = isRecurring;
 
     await category.save();
 

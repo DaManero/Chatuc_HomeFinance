@@ -17,6 +17,12 @@ export const Category = sequelize.define(
       type: DataTypes.ENUM("Ingreso", "Egreso"),
       allowNull: false,
     },
+    isRecurring: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      comment: "Indica si es una categoría de gasto/ingreso fijo mensual",
+    },
     userId: {
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,
