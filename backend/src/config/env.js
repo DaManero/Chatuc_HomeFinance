@@ -15,4 +15,6 @@ export const env = {
     accessTtl: process.env.JWT_ACCESS_TTL || "15m",
     refreshTtl: process.env.JWT_REFRESH_TTL || "7d",
   },
+  TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
+  API_URL: process.env.API_URL || "http://localhost:3000",
 };

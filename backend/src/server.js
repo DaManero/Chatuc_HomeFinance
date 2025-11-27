@@ -2,6 +2,7 @@ import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { testConnection } from "./config/db.js";
 import { syncModels } from "./models/index.js";
+import telegramBotService from "./services/telegramBot.service.js";
 
 let server;
 let retryAttempted = false;
@@ -12,6 +13,9 @@ async function bootstrap() {
 
     await testConnection();
     await syncModels();
+
+    // Inicializar bot de Telegram
+    telegramBotService.initialize();
 
     server = app.listen(env.port, () => {
       console.log(`✓ Server running on port ${env.port}`);
@@ -59,6 +63,7 @@ process.on("SIGINT", () => {
   if (server) {
     server.close(() => {
       console.log("✓ Server closed");
+      telegramBotService.stop();
       process.exit(0);
     });
   }

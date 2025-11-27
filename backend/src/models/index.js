@@ -7,6 +7,8 @@ import { Loan } from "./loan.model.js";
 import { LoanPayment } from "./loanPayment.model.js";
 import { Investment } from "./investment.model.js";
 import { InvestmentEarning } from "./investmentEarning.model.js";
+import PendingTransaction from "./pendingTransaction.model.js";
+import UserTelegramLink from "./userTelegramLink.model.js";
 
 // Definir relaciones
 User.hasMany(Category, { foreignKey: "userId", as: "categories" });
@@ -58,6 +60,23 @@ InvestmentEarning.belongsTo(Transaction, {
   as: "transaction",
 });
 
+User.hasMany(PendingTransaction, {
+  foreignKey: "userId",
+  as: "pendingTransactions",
+});
+PendingTransaction.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+PendingTransaction.belongsTo(Transaction, {
+  foreignKey: "processedTransactionId",
+  as: "processedTransaction",
+});
+
+User.hasMany(UserTelegramLink, {
+  foreignKey: "userId",
+  as: "telegramLinks",
+});
+UserTelegramLink.belongsTo(User, { foreignKey: "userId", as: "user" });
+
 export const models = {
   User,
   Category,
@@ -67,6 +86,8 @@ export const models = {
   LoanPayment,
   Investment,
   InvestmentEarning,
+  PendingTransaction,
+  UserTelegramLink,
 };
 
 export async function syncModels() {

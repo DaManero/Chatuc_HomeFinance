@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import {
   Drawer,
   List,
@@ -12,6 +13,7 @@ import {
   Typography,
   Divider,
   Button,
+  Badge,
 } from "@mui/material";
 import {
   ReceiptLongOutlined,
@@ -21,8 +23,10 @@ import {
   PeopleOutlined,
   LogoutOutlined,
   CalendarMonthOutlined,
+  HourglassBottomOutlined,
 } from "@mui/icons-material";
 import { useAuth } from "@/context/AuthContext";
+import pendingTransactionService from "@/services/pendingTransaction.service";
 
 const DRAWER_WIDTH = 260;
 
@@ -31,6 +35,12 @@ const menuItems = [
     text: "Transacciones",
     icon: <ReceiptLongOutlined />,
     path: "/transactions",
+  },
+  {
+    text: "Pendientes",
+    icon: <HourglassBottomOutlined />,
+    path: "/pending-transactions",
+    showBadge: true,
   },
   { text: "Categorías", icon: <CategoryOutlined />, path: "/categories" },
   {
@@ -52,9 +62,30 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout, isAdmin } = useAuth();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    loadPendingCount();
+    // Actualizar cada 30 segundos
+    const interval = setInterval(loadPendingCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const loadPendingCount = async () => {
+    try {
+      const stats = await pendingTransactionService.getStats();
+      setPendingCount(stats.pending || 0);
+    } catch (error) {
+      console.error("Error al cargar contador de pendientes:", error);
+    }
+  };
 
   const handleNavigation = (path) => {
     router.push(path);
+    // Recargar contador al navegar a pendientes
+    if (path === "/pending-transactions") {
+      setTimeout(loadPendingCount, 1000);
+    }
   };
 
   const handleLogout = () => {
@@ -177,7 +208,13 @@ export default function Sidebar() {
                     minWidth: 40,
                   }}
                 >
-                  {item.icon}
+                  {item.showBadge ? (
+                    <Badge badgeContent={pendingCount} color="error">
+                      {item.icon}
+                    </Badge>
+                  ) : (
+                    item.icon
+                  )}
                 </ListItemIcon>
                 <ListItemText primary={item.text} />
               </ListItemButton>
