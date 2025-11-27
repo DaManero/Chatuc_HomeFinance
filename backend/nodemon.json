@@ -1,6 +1,7 @@
 {
     "delay": 2000,
     "verbose": true,
+    "signal": "SIGTERM",
     "ignore": [
         "*.test.js",
         "*.spec.js",

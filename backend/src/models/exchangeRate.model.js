@@ -1,48 +1,44 @@
 import { DataTypes } from "sequelize";
 import { sequelize } from "../config/db.js";
 
-export const Transaction = sequelize.define(
-  "Transaction",
+export const ExchangeRate = sequelize.define(
+  "ExchangeRate",
   {
     id: {
       type: DataTypes.INTEGER.UNSIGNED,
       autoIncrement: true,
       primaryKey: true,
     },
-    amount: {
+    currencyFrom: {
+      type: DataTypes.STRING(3),
+      allowNull: false,
+      defaultValue: "USD",
+      field: "currency_from",
+    },
+    currencyTo: {
+      type: DataTypes.STRING(3),
+      allowNull: false,
+      defaultValue: "ARS",
+      field: "currency_to",
+    },
+    rate: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: false,
       validate: {
         min: 0.01,
       },
+      comment: "Tasa de cambio",
+    },
+    source: {
+      type: DataTypes.ENUM("manual", "api", "oficial", "blue"),
+      allowNull: false,
+      defaultValue: "api",
+      comment: "Origen de la cotización",
     },
     date: {
       type: DataTypes.DATEONLY,
       allowNull: false,
       defaultValue: DataTypes.NOW,
-    },
-    description: {
-      type: DataTypes.STRING(255),
-      allowNull: true,
-    },
-    type: {
-      type: DataTypes.ENUM("Ingreso", "Egreso"),
-      allowNull: false,
-    },
-    currency: {
-      type: DataTypes.STRING(3),
-      allowNull: false,
-      defaultValue: "ARS",
-      comment: "Moneda de la transacción (ARS, USD)",
-    },
-    categoryId: {
-      type: DataTypes.INTEGER.UNSIGNED,
-      allowNull: false,
-      references: {
-        model: "categories",
-        key: "id",
-      },
-      onDelete: "RESTRICT",
     },
     userId: {
       type: DataTypes.INTEGER.UNSIGNED,
@@ -52,10 +48,11 @@ export const Transaction = sequelize.define(
         key: "id",
       },
       onDelete: "CASCADE",
+      field: "user_id",
     },
   },
   {
-    tableName: "transactions",
+    tableName: "exchange_rates",
     timestamps: true,
     underscored: true,
   }

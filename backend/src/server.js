@@ -4,6 +4,7 @@ import { testConnection } from "./config/db.js";
 import { syncModels } from "./models/index.js";
 
 let server;
+let retryAttempted = false;
 
 async function bootstrap() {
   try {
@@ -14,12 +15,24 @@ async function bootstrap() {
 
     server = app.listen(env.port, () => {
       console.log(`✓ Server running on port ${env.port}`);
+      retryAttempted = false; // Reset flag on successful start
     });
 
     server.on("error", (error) => {
       if (error.code === "EADDRINUSE") {
         console.error(`❌ Port ${env.port} is already in use`);
-        process.exit(1);
+
+        if (!retryAttempted) {
+          retryAttempted = true;
+          console.log("⏳ Esperando 3 segundos y reintentando...");
+          setTimeout(() => {
+            server.close();
+            server.listen(env.port);
+          }, 3000);
+        } else {
+          console.error("❌ Port still in use after retry. Exiting...");
+          process.exit(1);
+        }
       } else {
         console.error("❌ Server error:", error);
       }

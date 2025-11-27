@@ -6,6 +6,8 @@ import { categoryRouter } from "./routes/category.routes.js";
 import { transactionRouter } from "./routes/transaction.routes.js";
 import userRouter from "./routes/user.routes.js";
 import recurringExpensesRouter from "./routes/recurringExpenses.routes.js";
+import exchangeRateRouter from "./routes/exchangeRate.routes.js";
+import loanRouter from "./routes/loan.routes.js";
 
 export function createApp() {
   const app = express();
@@ -19,6 +21,8 @@ export function createApp() {
   app.use("/transactions", transactionRouter);
   app.use("/users", userRouter);
   app.use("/recurring-expenses", recurringExpensesRouter);
+  app.use("/exchange-rates", exchangeRateRouter);
+  app.use("/loans", loanRouter);
 
   app.use((req, res) => {
     res.status(404).json({ error: "Not Found" });

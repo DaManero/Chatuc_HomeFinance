@@ -31,6 +31,7 @@ export default function TransactionDialog({
     description: "",
     type: "Egreso",
     categoryId: "",
+    currency: "ARS",
   });
   const [errors, setErrors] = useState({});
 
@@ -43,6 +44,7 @@ export default function TransactionDialog({
         description: transaction.description || "",
         type: transaction.type || "Egreso",
         categoryId: transaction.categoryId || "",
+        currency: transaction.currency || "ARS",
       });
     } else {
       // Modo creación
@@ -52,6 +54,7 @@ export default function TransactionDialog({
         description: "",
         type: "Egreso",
         categoryId: "",
+        currency: "ARS",
       });
     }
     setErrors({});
@@ -98,6 +101,7 @@ export default function TransactionDialog({
       description: formData.description.trim() || null,
       type: formData.type,
       categoryId: parseInt(formData.categoryId),
+      currency: formData.currency,
     };
 
     onSave(dataToSend);
@@ -149,10 +153,27 @@ export default function TransactionDialog({
           helperText={errors.amount}
           inputProps={{ min: 0, step: 0.01 }}
           InputProps={{
-            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+            startAdornment: (
+              <InputAdornment position="start">
+                {formData.currency === "USD" ? "U$S" : "$"}
+              </InputAdornment>
+            ),
           }}
           sx={{ mb: 2.5 }}
         />
+
+        <FormControl fullWidth sx={{ mb: 2.5 }}>
+          <InputLabel>Moneda</InputLabel>
+          <Select
+            name="currency"
+            value={formData.currency}
+            onChange={handleChange}
+            label="Moneda"
+          >
+            <MenuItem value="ARS">🇦🇷 Pesos (ARS)</MenuItem>
+            <MenuItem value="USD">🇺🇸 Dólares (USD)</MenuItem>
+          </Select>
+        </FormControl>
 
         <TextField
           fullWidth

@@ -1,13 +1,23 @@
 import { DataTypes } from "sequelize";
 import { sequelize } from "../config/db.js";
 
-export const Transaction = sequelize.define(
-  "Transaction",
+export const LoanPayment = sequelize.define(
+  "LoanPayment",
   {
     id: {
       type: DataTypes.INTEGER.UNSIGNED,
       autoIncrement: true,
       primaryKey: true,
+    },
+    loanId: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: false,
+      references: {
+        model: "loans",
+        key: "id",
+      },
+      onDelete: "CASCADE",
+      field: "loan_id",
     },
     amount: {
       type: DataTypes.DECIMAL(10, 2),
@@ -15,34 +25,28 @@ export const Transaction = sequelize.define(
       validate: {
         min: 0.01,
       },
+      comment: "Monto del pago",
     },
-    date: {
+    paymentDate: {
       type: DataTypes.DATEONLY,
       allowNull: false,
-      defaultValue: DataTypes.NOW,
+      field: "payment_date",
+      comment: "Fecha del pago",
     },
-    description: {
-      type: DataTypes.STRING(255),
-      allowNull: true,
-    },
-    type: {
-      type: DataTypes.ENUM("Ingreso", "Egreso"),
-      allowNull: false,
-    },
-    currency: {
-      type: DataTypes.STRING(3),
-      allowNull: false,
-      defaultValue: "ARS",
-      comment: "Moneda de la transacción (ARS, USD)",
-    },
-    categoryId: {
+    transactionId: {
       type: DataTypes.INTEGER.UNSIGNED,
-      allowNull: false,
+      allowNull: true,
       references: {
-        model: "categories",
+        model: "transactions",
         key: "id",
       },
-      onDelete: "RESTRICT",
+      onDelete: "SET NULL",
+      field: "transaction_id",
+      comment: "Transacción asociada al pago",
+    },
+    notes: {
+      type: DataTypes.TEXT,
+      allowNull: true,
     },
     userId: {
       type: DataTypes.INTEGER.UNSIGNED,
@@ -52,10 +56,11 @@ export const Transaction = sequelize.define(
         key: "id",
       },
       onDelete: "CASCADE",
+      field: "user_id",
     },
   },
   {
-    tableName: "transactions",
+    tableName: "loan_payments",
     timestamps: true,
     underscored: true,
   }
