@@ -57,10 +57,9 @@ export async function createLoan(req, res) {
 
 export async function getLoans(req, res) {
   try {
-    const userId = req.user.userId;
     const { status } = req.query;
 
-    const where = { userId };
+    const where = {};
     if (status) {
       where.status = status;
     }
@@ -87,10 +86,9 @@ export async function getLoans(req, res) {
 export async function getLoanById(req, res) {
   try {
     const { id } = req.params;
-    const userId = req.user.userId;
 
     const loan = await models.Loan.findOne({
-      where: { id, userId },
+      where: { id },
       include: [
         {
           model: models.LoanPayment,
@@ -128,7 +126,7 @@ export async function updateLoan(req, res) {
     } = req.body;
 
     const loan = await models.Loan.findOne({
-      where: { id, userId },
+      where: { id: loanId },
     });
 
     if (!loan) {
@@ -176,10 +174,9 @@ export async function updateLoan(req, res) {
 export async function deleteLoan(req, res) {
   try {
     const { id } = req.params;
-    const userId = req.user.userId;
 
     const loan = await models.Loan.findOne({
-      where: { id, userId },
+      where: { id },
     });
 
     if (!loan) {
@@ -222,7 +219,7 @@ export async function registerPayment(req, res) {
     }
 
     const loan = await models.Loan.findOne({
-      where: { id, userId },
+      where: { id },
       transaction: t,
     });
 

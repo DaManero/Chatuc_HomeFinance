@@ -19,7 +19,9 @@ export function AuthProvider({ children }) {
         }
       } catch (error) {
         console.error("Error al cargar usuario:", error);
+        // Limpiar el token inválido
         authService.logout();
+        setUser(null);
       } finally {
         setLoading(false);
       }

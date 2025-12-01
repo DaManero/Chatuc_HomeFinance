@@ -34,10 +34,9 @@ export async function createCategory(req, res) {
 
 export async function getCategories(req, res) {
   try {
-    const userId = req.user.userId;
     const { type } = req.query;
 
-    const where = { userId };
+    const where = {};
     if (type) {
       where.type = type;
     }
@@ -93,7 +92,7 @@ export async function deleteCategory(req, res) {
     const userId = req.user.userId;
 
     const category = await models.Category.findOne({
-      where: { id, userId },
+      where: { id },
     });
 
     if (!category) {

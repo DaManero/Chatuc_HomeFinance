@@ -3,11 +3,9 @@ import { Op } from "sequelize";
 
 export async function getRecurringProjection(req, res) {
   try {
-    const userId = req.user.userId;
-
-    // Obtener todas las categorías recurrentes del usuario
+    // Obtener todas las categorías recurrentes
     const recurringCategories = await models.Category.findAll({
-      where: { userId, isRecurring: true },
+      where: { isRecurring: true },
       order: [["name", "ASC"]],
     });
 
@@ -15,7 +13,7 @@ export async function getRecurringProjection(req, res) {
     const projections = await Promise.all(
       recurringCategories.map(async (category) => {
         const lastTransaction = await models.Transaction.findOne({
-          where: { categoryId: category.id, userId },
+          where: { categoryId: category.id },
           order: [["date", "DESC"]],
         });
 

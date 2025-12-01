@@ -138,7 +138,7 @@ export default function GastosFijosPage() {
       <Box>
         <Box sx={{ mb: 4 }}>
           <Typography variant="h4" component="h1" gutterBottom>
-            Gastos Fijos
+            Proyecciones
           </Typography>
           <Typography variant="body1" color="text.secondary">
             Proyección para {getNextMonthName()}

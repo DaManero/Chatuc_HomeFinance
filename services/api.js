@@ -31,11 +31,17 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    // Si el token expiró (401), redirigir al login
-    if (error.response?.status === 401) {
+    // Si el token expiró o no tiene permisos (401 o 403), limpiar y redirigir al login
+    if (error.response?.status === 401 || error.response?.status === 403) {
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
-      window.location.href = "/login";
+      // Solo redirigir si no estamos ya en la página de login
+      if (
+        window.location.pathname !== "/" &&
+        window.location.pathname !== "/login"
+      ) {
+        window.location.href = "/";
+      }
     }
 
     return Promise.reject(error);

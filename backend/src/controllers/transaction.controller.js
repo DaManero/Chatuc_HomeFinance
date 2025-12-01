@@ -27,9 +27,9 @@ export async function createTransaction(req, res) {
         .json({ error: 'Type debe ser "Ingreso" o "Egreso"' });
     }
 
-    // Verificar que la categoría existe y pertenece al usuario
+    // Verificar que la categoría existe
     const category = await models.Category.findOne({
-      where: { id: categoryId, userId },
+      where: { id: categoryId },
     });
 
     if (!category) {
@@ -64,10 +64,9 @@ export async function createTransaction(req, res) {
 
 export async function getTransactions(req, res) {
   try {
-    const userId = req.user.userId;
     const { type, categoryId, fromDate, toDate } = req.query;
 
-    const where = { userId };
+    const where = {};
 
     if (type) {
       where.type = type;
@@ -109,7 +108,7 @@ export async function updateTransaction(req, res) {
     const userId = req.user.userId;
 
     const transaction = await models.Transaction.findOne({
-      where: { id, userId },
+      where: { id },
     });
 
     if (!transaction) {
@@ -122,10 +121,10 @@ export async function updateTransaction(req, res) {
         .json({ error: 'Type debe ser "Ingreso" o "Egreso"' });
     }
 
-    // Si cambia categoryId, verificar que existe y pertenece al usuario
+    // Si cambia categoryId, verificar que existe
     if (categoryId && categoryId !== transaction.categoryId) {
       const category = await models.Category.findOne({
-        where: { id: categoryId, userId },
+        where: { id: categoryId },
       });
 
       if (!category) {
@@ -162,10 +161,9 @@ export async function updateTransaction(req, res) {
 export async function deleteTransaction(req, res) {
   try {
     const { id } = req.params;
-    const userId = req.user.userId;
 
     const transaction = await models.Transaction.findOne({
-      where: { id, userId },
+      where: { id },
     });
 
     if (!transaction) {

@@ -44,7 +44,7 @@ const menuItems = [
   },
   { text: "Categorías", icon: <CategoryOutlined />, path: "/categories" },
   {
-    text: "Gastos Fijos",
+    text: "Proyecciones",
     icon: <CalendarMonthOutlined />,
     path: "/gastos-fijos",
   },

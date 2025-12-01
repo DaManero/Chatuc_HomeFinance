@@ -210,10 +210,9 @@ export async function createInvestment(req, res) {
 
 export async function getInvestments(req, res) {
   try {
-    const userId = req.user.userId;
-    const { status, type } = req.query;
+    const { type, status } = req.query;
 
-    const where = { userId };
+    const where = {};
     if (status) {
       where.status = status;
     }
@@ -260,7 +259,7 @@ export async function getInvestmentById(req, res) {
     const userId = req.user.userId;
 
     const investment = await models.Investment.findOne({
-      where: { id, userId },
+      where: { id },
     });
 
     if (!investment) {
@@ -281,7 +280,7 @@ export async function updateInvestment(req, res) {
     const updateData = req.body;
 
     const investment = await models.Investment.findOne({
-      where: { id, userId },
+      where: { id },
     });
 
     if (!investment) {
@@ -319,7 +318,7 @@ export async function deleteInvestment(req, res) {
     const userId = req.user.userId;
 
     const investment = await models.Investment.findOne({
-      where: { id, userId },
+      where: { id },
     });
 
     if (!investment) {
@@ -355,7 +354,7 @@ export async function registerEarning(req, res) {
 
     // Verificar que la inversión existe y es del usuario
     const investment = await models.Investment.findOne({
-      where: { id, userId },
+      where: { id },
       transaction: t,
     });
 
@@ -433,7 +432,7 @@ export async function getEarnings(req, res) {
     const userId = req.user.userId;
 
     const investment = await models.Investment.findOne({
-      where: { id, userId },
+      where: { id },
     });
 
     if (!investment) {

@@ -20,11 +20,9 @@ async function fetchFromDolarApi() {
 
 export async function getCurrentRate(req, res) {
   try {
-    const userId = req.user.userId;
-
-    // Buscar la cotización más reciente del usuario
+    // Buscar la cotización más reciente
     const latestRate = await models.ExchangeRate.findOne({
-      where: { userId, currencyFrom: "USD", currencyTo: "ARS" },
+      where: { currencyFrom: "USD", currencyTo: "ARS" },
       order: [["date", "DESC"]],
     });
 
@@ -99,11 +97,10 @@ export async function updateRate(req, res) {
 
 export async function getRateHistory(req, res) {
   try {
-    const userId = req.user.userId;
     const { limit = 30 } = req.query;
 
     const rates = await models.ExchangeRate.findAll({
-      where: { userId, currencyFrom: "USD", currencyTo: "ARS" },
+      where: { currencyFrom: "USD", currencyTo: "ARS" },
       order: [["date", "DESC"]],
       limit: parseInt(limit),
     });

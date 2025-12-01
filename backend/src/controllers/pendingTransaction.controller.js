@@ -9,10 +9,9 @@ import { sequelize } from "../config/db.js";
  */
 export async function getPendingTransactions(req, res) {
   try {
-    const { userId } = req.user;
     const { status } = req.query;
 
-    const where = { userId };
+    const where = {};
     if (status) {
       where.status = status;
     } else {
@@ -101,7 +100,7 @@ export async function processPendingTransaction(req, res) {
 
     // Buscar la transacción pendiente
     const pending = await PendingTransaction.findOne({
-      where: { id, userId, status: "pending" },
+      where: { id, status: "pending" },
       transaction: t,
     });
 
@@ -116,12 +115,12 @@ export async function processPendingTransaction(req, res) {
     let category;
     if (categoryId) {
       category = await Category.findOne({
-        where: { id: categoryId, userId },
+        where: { id: categoryId },
         transaction: t,
       });
     } else if (categoryName) {
       [category] = await Category.findOrCreate({
-        where: { name: categoryName, type, userId },
+        where: { name: categoryName, type },
         defaults: { name: categoryName, type, userId },
         transaction: t,
       });
@@ -175,10 +174,9 @@ export async function processPendingTransaction(req, res) {
 export async function discardPendingTransaction(req, res) {
   try {
     const { id } = req.params;
-    const { userId } = req.user;
 
     const pending = await PendingTransaction.findOne({
-      where: { id, userId, status: "pending" },
+      where: { id, status: "pending" },
     });
 
     if (!pending) {
@@ -205,10 +203,8 @@ export async function discardPendingTransaction(req, res) {
  */
 export async function getPendingStats(req, res) {
   try {
-    const { userId } = req.user;
-
     const stats = await PendingTransaction.findAll({
-      where: { userId },
+      where: {},
       attributes: [
         "status",
         [sequelize.fn("COUNT", sequelize.col("id")), "count"],
