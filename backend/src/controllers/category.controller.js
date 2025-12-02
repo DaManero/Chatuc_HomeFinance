@@ -41,7 +41,10 @@ export async function getCategories(req, res) {
       where.type = type;
     }
 
-    const categories = await models.Category.findAll({ where });
+    const categories = await models.Category.findAll({
+      where,
+      order: [["name", "ASC"]],
+    });
 
     res.json({ categories });
   } catch (err) {

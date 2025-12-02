@@ -24,6 +24,7 @@ export default function TransactionDialog({
   onSave,
   transaction = null,
   categories = [],
+  paymentMethods = [],
 }) {
   const [formData, setFormData] = useState({
     amount: "",
@@ -31,6 +32,7 @@ export default function TransactionDialog({
     description: "",
     type: "Egreso",
     categoryId: "",
+    paymentMethodId: "",
     currency: "ARS",
   });
   const [errors, setErrors] = useState({});
@@ -44,6 +46,7 @@ export default function TransactionDialog({
         description: transaction.description || "",
         type: transaction.type || "Egreso",
         categoryId: transaction.categoryId || "",
+        paymentMethodId: transaction.paymentMethodId || "",
         currency: transaction.currency || "ARS",
       });
     } else {
@@ -54,6 +57,7 @@ export default function TransactionDialog({
         description: "",
         type: "Egreso",
         categoryId: "",
+        paymentMethodId: "",
         currency: "ARS",
       });
     }
@@ -101,6 +105,9 @@ export default function TransactionDialog({
       description: formData.description.trim() || null,
       type: formData.type,
       categoryId: parseInt(formData.categoryId),
+      paymentMethodId: formData.paymentMethodId
+        ? parseInt(formData.paymentMethodId)
+        : null,
       currency: formData.currency,
     };
 
@@ -216,6 +223,25 @@ export default function TransactionDialog({
           {errors.categoryId && (
             <FormHelperText>{errors.categoryId}</FormHelperText>
           )}
+        </FormControl>
+
+        <FormControl fullWidth sx={{ mb: 2.5 }}>
+          <InputLabel>Medio de Pago (opcional)</InputLabel>
+          <Select
+            name="paymentMethodId"
+            value={formData.paymentMethodId}
+            onChange={handleChange}
+            label="Medio de Pago (opcional)"
+          >
+            <MenuItem value="">
+              <em>Sin especificar</em>
+            </MenuItem>
+            {paymentMethods.map((method) => (
+              <MenuItem key={method.id} value={method.id}>
+                {method.name} ({method.type})
+              </MenuItem>
+            ))}
+          </Select>
         </FormControl>
 
         <TextField

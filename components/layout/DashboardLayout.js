@@ -47,8 +47,9 @@ export default function DashboardLayout({ children }) {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 4,
+          p: 2,
           backgroundColor: "background.default",
+          maxWidth: "100%",
         }}
       >
         {children}

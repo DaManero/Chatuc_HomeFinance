@@ -12,7 +12,8 @@ function getTodayLocalDate() {
 
 export async function createTransaction(req, res) {
   try {
-    const { amount, date, description, type, categoryId } = req.body;
+    const { amount, date, description, type, categoryId, paymentMethodId } =
+      req.body;
     const userId = req.user.userId;
 
     if (!amount || !type || !categoryId) {
@@ -43,12 +44,24 @@ export async function createTransaction(req, res) {
       });
     }
 
+    // Verificar que el medio de pago existe (si se proporciona)
+    if (paymentMethodId) {
+      const paymentMethod = await models.PaymentMethod.findOne({
+        where: { id: paymentMethodId },
+      });
+
+      if (!paymentMethod) {
+        return res.status(404).json({ error: "Medio de pago no encontrado" });
+      }
+    }
+
     const transaction = await models.Transaction.create({
       amount,
       date: date || getTodayLocalDate(),
       description,
       type,
       categoryId,
+      paymentMethodId: paymentMethodId || null,
       userId,
     });
 
@@ -90,6 +103,11 @@ export async function getTransactions(req, res) {
           as: "category",
           attributes: ["id", "name", "type"],
         },
+        {
+          model: models.PaymentMethod,
+          as: "paymentMethod",
+          attributes: ["id", "name", "type"],
+        },
       ],
       order: [["date", "DESC"]],
     });
@@ -104,7 +122,8 @@ export async function getTransactions(req, res) {
 export async function updateTransaction(req, res) {
   try {
     const { id } = req.params;
-    const { amount, date, description, type, categoryId } = req.body;
+    const { amount, date, description, type, categoryId, paymentMethodId } =
+      req.body;
     const userId = req.user.userId;
 
     const transaction = await models.Transaction.findOne({
@@ -140,11 +159,24 @@ export async function updateTransaction(req, res) {
       }
     }
 
+    // Verificar que el medio de pago existe (si se proporciona)
+    if (paymentMethodId !== undefined && paymentMethodId !== null) {
+      const paymentMethod = await models.PaymentMethod.findOne({
+        where: { id: paymentMethodId },
+      });
+
+      if (!paymentMethod) {
+        return res.status(404).json({ error: "Medio de pago no encontrado" });
+      }
+    }
+
     if (amount !== undefined) transaction.amount = amount;
     if (date) transaction.date = date;
     if (description !== undefined) transaction.description = description;
     if (type) transaction.type = type;
     if (categoryId) transaction.categoryId = categoryId;
+    if (paymentMethodId !== undefined)
+      transaction.paymentMethodId = paymentMethodId;
 
     await transaction.save();
 

@@ -16,12 +16,12 @@ import {
   Chip,
   Alert,
   CircularProgress,
-  ToggleButtonGroup,
-  ToggleButton,
-  TablePagination,
+  Switch,
+  Grid,
   TextField,
   InputAdornment,
-  Switch,
+  MenuItem,
+  TablePagination,
 } from "@mui/material";
 import {
   AddOutlined,
@@ -29,87 +29,91 @@ import {
   DeleteOutlined,
   TrendingUpOutlined,
   TrendingDownOutlined,
+  AccountBalanceWalletOutlined,
+  CreditCardOutlined,
+  SwapHorizOutlined,
+  MoneyOutlined,
+  MoreHorizOutlined,
   SearchOutlined,
+  FilterListOutlined,
 } from "@mui/icons-material";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/context/AuthContext";
 import categoryService from "@/services/category.service";
+import paymentMethodService from "@/services/paymentMethod.service";
 import CategoryDialog from "@/components/categories/CategoryDialog";
+import PaymentMethodDialog from "@/components/paymentMethods/PaymentMethodDialog";
+
+const getPaymentMethodIcon = (type) => {
+  switch (type) {
+    case "Efectivo":
+      return <MoneyOutlined fontSize="small" />;
+    case "Tarjeta":
+      return <CreditCardOutlined fontSize="small" />;
+    case "Transferencia":
+      return <SwapHorizOutlined fontSize="small" />;
+    case "Billetera Virtual":
+      return <AccountBalanceWalletOutlined fontSize="small" />;
+    case "Otro":
+      return <MoreHorizOutlined fontSize="small" />;
+    default:
+      return <AccountBalanceWalletOutlined fontSize="small" />;
+  }
+};
 
 export default function CategoriesPage() {
   const { isAdmin } = useAuth();
+
+  // Estados para categorías
   const [categories, setCategories] = useState([]);
-  const [filteredCategories, setFilteredCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const [filter, setFilter] = useState("Todos");
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [categorySearchTerm, setCategorySearchTerm] = useState("");
+  const [categoryTypeFilter, setCategoryTypeFilter] = useState("Todos");
+  const [categoryPage, setCategoryPage] = useState(0);
+  const [categoryRowsPerPage, setCategoryRowsPerPage] = useState(8);
+
+  // Estados para medios de pago
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(true);
+  const [paymentMethodDialogOpen, setPaymentMethodDialogOpen] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null);
+  const [paymentMethodSearchTerm, setPaymentMethodSearchTerm] = useState("");
+  const [paymentMethodTypeFilter, setPaymentMethodTypeFilter] =
+    useState("Todos");
+  const [paymentMethodPage, setPaymentMethodPage] = useState(0);
+  const [paymentMethodRowsPerPage, setPaymentMethodRowsPerPage] = useState(8);
+
+  // Estado general
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     loadCategories();
+    loadPaymentMethods();
   }, []);
 
-  useEffect(() => {
-    applyFilter();
-  }, [categories, filter, searchTerm]);
-
+  // ===== CATEGORÍAS =====
   const loadCategories = async () => {
     try {
-      setLoading(true);
+      setLoadingCategories(true);
       const data = await categoryService.getCategories();
-      console.log("Categorías cargadas:", data);
       setCategories(data);
-      setError(null);
     } catch (err) {
       setError(err.response?.data?.error || "Error al cargar categorías");
     } finally {
-      setLoading(false);
+      setLoadingCategories(false);
     }
   };
 
-  const applyFilter = () => {
-    let filtered = categories;
-
-    // Filtrar por tipo
-    if (filter !== "Todos") {
-      filtered = filtered.filter((cat) => cat.type === filter);
-    }
-
-    // Filtrar por búsqueda
-    if (searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter((cat) =>
-        cat.name.toLowerCase().includes(searchLower)
-      );
-    }
-
-    setFilteredCategories(filtered);
-  };
-
-  const handleFilterChange = (event, newFilter) => {
-    if (newFilter !== null) {
-      setFilter(newFilter);
-      setPage(0);
-    }
-  };
-
-  const handleSearchChange = (event) => {
-    setSearchTerm(event.target.value);
-    setPage(0);
-  };
-
-  const handleOpenDialog = (category = null) => {
+  const handleOpenCategoryDialog = (category = null) => {
     setSelectedCategory(category);
-    setDialogOpen(true);
+    setCategoryDialogOpen(true);
   };
 
-  const handleCloseDialog = () => {
+  const handleCloseCategoryDialog = () => {
     setSelectedCategory(null);
-    setDialogOpen(false);
+    setCategoryDialogOpen(false);
   };
 
   const handleSaveCategory = async (categoryData) => {
@@ -119,16 +123,11 @@ export default function CategoriesPage() {
       } else {
         await categoryService.createCategory(categoryData);
       }
-      handleCloseDialog();
+      handleCloseCategoryDialog();
       loadCategories();
       setError(null);
     } catch (err) {
-      console.error("Error al guardar categoría:", err);
-      setError(
-        err.response?.data?.error ||
-          err.response?.data?.message ||
-          "Error al guardar categoría"
-      );
+      setError(err.response?.data?.error || "Error al guardar categoría");
     }
   };
 
@@ -147,12 +146,11 @@ export default function CategoriesPage() {
       loadCategories();
       setError(null);
     } catch (err) {
-      console.error("Error al actualizar categoría:", err);
       setError(err.response?.data?.error || "Error al actualizar categoría");
     }
   };
 
-  const handleDelete = async (categoryId) => {
+  const handleDeleteCategory = async (categoryId) => {
     if (!isAdmin()) {
       alert("No tienes permisos para eliminar categorías");
       return;
@@ -167,24 +165,103 @@ export default function CategoriesPage() {
       loadCategories();
       setError(null);
     } catch (err) {
-      console.error("Error al eliminar categoría:", err);
       setError(err.response?.data?.error || "Error al eliminar categoría");
     }
   };
 
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
+  // ===== MEDIOS DE PAGO =====
+  const loadPaymentMethods = async () => {
+    try {
+      setLoadingPaymentMethods(true);
+      const data = await paymentMethodService.getPaymentMethods();
+      setPaymentMethods(data);
+    } catch (err) {
+      setError(err.response?.data?.error || "Error al cargar medios de pago");
+    } finally {
+      setLoadingPaymentMethods(false);
+    }
   };
 
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
+  const handleOpenPaymentMethodDialog = (paymentMethod = null) => {
+    setSelectedPaymentMethod(paymentMethod);
+    setPaymentMethodDialogOpen(true);
   };
+
+  const handleClosePaymentMethodDialog = () => {
+    setSelectedPaymentMethod(null);
+    setPaymentMethodDialogOpen(false);
+  };
+
+  const handleSavePaymentMethod = async (paymentMethodData) => {
+    try {
+      if (selectedPaymentMethod) {
+        await paymentMethodService.updatePaymentMethod(
+          selectedPaymentMethod.id,
+          paymentMethodData
+        );
+      } else {
+        await paymentMethodService.createPaymentMethod(paymentMethodData);
+      }
+      handleClosePaymentMethodDialog();
+      loadPaymentMethods();
+      setError(null);
+    } catch (err) {
+      setError(err.response?.data?.error || "Error al guardar medio de pago");
+    }
+  };
+
+  const handleDeletePaymentMethod = async (paymentMethodId) => {
+    if (!isAdmin()) {
+      alert("No tienes permisos para eliminar medios de pago");
+      return;
+    }
+
+    if (!confirm("¿Estás seguro de eliminar este medio de pago?")) {
+      return;
+    }
+
+    try {
+      await paymentMethodService.deletePaymentMethod(paymentMethodId);
+      loadPaymentMethods();
+      setError(null);
+    } catch (err) {
+      setError(err.response?.data?.error || "Error al eliminar medio de pago");
+    }
+  };
+
+  // ===== FILTROS Y PAGINACIÓN =====
+  // Categorías filtradas y paginadas
+  const filteredCategories = categories.filter((cat) => {
+    const matchesSearch = cat.name
+      .toLowerCase()
+      .includes(categorySearchTerm.toLowerCase());
+    const matchesType =
+      categoryTypeFilter === "Todos" || cat.type === categoryTypeFilter;
+    return matchesSearch && matchesType;
+  });
 
   const paginatedCategories = filteredCategories.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
+    categoryPage * categoryRowsPerPage,
+    categoryPage * categoryRowsPerPage + categoryRowsPerPage
   );
+
+  // Medios de pago filtrados y paginados
+  const filteredPaymentMethods = paymentMethods.filter((method) => {
+    const matchesSearch = method.name
+      .toLowerCase()
+      .includes(paymentMethodSearchTerm.toLowerCase());
+    const matchesType =
+      paymentMethodTypeFilter === "Todos" ||
+      method.type === paymentMethodTypeFilter;
+    return matchesSearch && matchesType;
+  });
+
+  const paginatedPaymentMethods = filteredPaymentMethods.slice(
+    paymentMethodPage * paymentMethodRowsPerPage,
+    paymentMethodPage * paymentMethodRowsPerPage + paymentMethodRowsPerPage
+  );
+
+  const loading = loadingCategories || loadingPaymentMethods;
 
   if (loading) {
     return (
@@ -198,32 +275,14 @@ export default function CategoriesPage() {
 
   return (
     <DashboardLayout>
-      <Box>
-        <Box
-          sx={{
-            mb: 4,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <Box>
-            <Typography variant="h4" component="h1" gutterBottom>
-              Categorías
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Gestión de categorías de ingresos y egresos
-            </Typography>
-          </Box>
-          {isAdmin() && (
-            <Button
-              variant="contained"
-              startIcon={<AddOutlined />}
-              onClick={() => handleOpenDialog()}
-            >
-              Nueva Categoría
-            </Button>
-          )}
+      <Box sx={{ width: "100%", overflow: "hidden" }}>
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Configuración
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Gestión de categorías y medios de pago
+          </Typography>
         </Box>
 
         {error && (
@@ -232,153 +291,367 @@ export default function CategoriesPage() {
           </Alert>
         )}
 
-        <Box
-          sx={{
-            mb: 3,
-            display: "flex",
-            gap: 2,
-            alignItems: "center",
-            flexWrap: "wrap",
-          }}
-        >
-          <TextField
-            placeholder="Buscar categorías..."
-            value={searchTerm}
-            onChange={handleSearchChange}
-            size="small"
-            sx={{ minWidth: 250 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchOutlined />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <ToggleButtonGroup
-            value={filter}
-            exclusive
-            onChange={handleFilterChange}
-            aria-label="filtro de categorías"
-            size="small"
-          >
-            <ToggleButton value="Todos" aria-label="todas">
-              Todas
-            </ToggleButton>
-            <ToggleButton value="Ingreso" aria-label="ingresos">
-              <TrendingUpOutlined sx={{ mr: 1 }} fontSize="small" />
-              Ingresos
-            </ToggleButton>
-            <ToggleButton value="Egreso" aria-label="egresos">
-              <TrendingDownOutlined sx={{ mr: 1 }} fontSize="small" />
-              Egresos
-            </ToggleButton>
-          </ToggleButtonGroup>
-        </Box>
-
-        <TableContainer component={Paper}>
-          <Table
-            sx={{
-              "& .MuiTableCell-root": { textAlign: "left", py: 1 },
-              "& .MuiTableRow-root": { height: 52 },
-            }}
-          >
-            <TableHead>
-              <TableRow>
-                <TableCell>Nombre</TableCell>
-                <TableCell>Tipo</TableCell>
-                <TableCell>Recurrente</TableCell>
-                <TableCell>Fecha de Creación</TableCell>
-                {isAdmin() && <TableCell>Acciones</TableCell>}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {paginatedCategories.map((category) => (
-                <TableRow key={category.id} hover>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={500}>
-                      {category.name}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      icon={
-                        category.type === "Ingreso" ? (
-                          <TrendingUpOutlined />
-                        ) : (
-                          <TrendingDownOutlined />
-                        )
-                      }
-                      label={category.type}
-                      color={category.type === "Ingreso" ? "success" : "error"}
-                      size="small"
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Switch
-                      checked={category.isRecurring || false}
-                      onChange={() => handleToggleRecurring(category)}
-                      disabled={!isAdmin()}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {new Date(category.createdAt).toLocaleDateString("es-ES")}
-                  </TableCell>
+        <Box sx={{ display: "flex", gap: 1, width: "100%" }}>
+          {/* CATEGORÍAS */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Paper sx={{ p: 2 }}>
+              <Box sx={{ mb: 2 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    mb: 2,
+                  }}
+                >
+                  <Typography variant="h6" fontWeight={600}>
+                    Categorías
+                  </Typography>
                   {isAdmin() && (
-                    <TableCell>
-                      <IconButton
-                        size="small"
-                        color="primary"
-                        onClick={() => handleOpenDialog(category)}
-                      >
-                        <EditOutlined fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => handleDelete(category.id)}
-                      >
-                        <DeleteOutlined fontSize="small" />
-                      </IconButton>
-                    </TableCell>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<AddOutlined />}
+                      onClick={() => handleOpenCategoryDialog()}
+                    >
+                      Agregar
+                    </Button>
                   )}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25, 50]}
-            component="div"
-            count={filteredCategories.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-            labelRowsPerPage="Filas por página:"
-            labelDisplayedRows={({ from, to, count }) =>
-              `${from}-${to} de ${count !== -1 ? count : `más de ${to}`}`
-            }
-          />
-        </TableContainer>
+                </Box>
 
-        {filteredCategories.length === 0 && !loading && (
-          <Box sx={{ textAlign: "center", py: 8 }}>
-            <Typography variant="body1" color="text.secondary">
-              {filter === "Todos"
-                ? "No hay categorías registradas"
-                : `No hay categorías de tipo ${filter}`}
-            </Typography>
+                {/* Filtros de categorías */}
+                <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
+                  <TextField
+                    size="small"
+                    placeholder="Buscar categoría..."
+                    value={categorySearchTerm}
+                    onChange={(e) => setCategorySearchTerm(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchOutlined fontSize="small" />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{ flex: 1 }}
+                  />
+                  <TextField
+                    select
+                    size="small"
+                    value={categoryTypeFilter}
+                    onChange={(e) => setCategoryTypeFilter(e.target.value)}
+                    sx={{ minWidth: 150 }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <FilterListOutlined fontSize="small" />
+                        </InputAdornment>
+                      ),
+                    }}
+                  >
+                    <MenuItem value="Todos">Todos</MenuItem>
+                    <MenuItem value="Ingreso">Ingreso</MenuItem>
+                    <MenuItem value="Egreso">Egreso</MenuItem>
+                  </TextField>
+                </Box>
+              </Box>
+
+              <TableContainer sx={{ maxHeight: 600 }}>
+                <Table size="small" stickyHeader>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Nombre</TableCell>
+                      <TableCell align="center">Tipo</TableCell>
+                      <TableCell align="center">Fija</TableCell>
+                      {isAdmin() && (
+                        <TableCell align="center">Acciones</TableCell>
+                      )}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {filteredCategories.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={isAdmin() ? 4 : 3} align="center">
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ py: 4 }}
+                          >
+                            {categorySearchTerm ||
+                            categoryTypeFilter !== "Todos"
+                              ? "No se encontraron categorías con los filtros aplicados"
+                              : "No hay categorías registradas"}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      paginatedCategories.map((category) => (
+                        <TableRow key={category.id} hover>
+                          <TableCell>
+                            <Typography variant="body2" fontWeight={500}>
+                              {category.name}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Chip
+                              icon={
+                                category.type === "Ingreso" ? (
+                                  <TrendingUpOutlined />
+                                ) : (
+                                  <TrendingDownOutlined />
+                                )
+                              }
+                              label={category.type}
+                              color={
+                                category.type === "Ingreso"
+                                  ? "success"
+                                  : "error"
+                              }
+                              size="small"
+                              variant="outlined"
+                            />
+                          </TableCell>
+                          <TableCell align="center">
+                            <Switch
+                              checked={category.isRecurring || false}
+                              onChange={() => handleToggleRecurring(category)}
+                              disabled={!isAdmin()}
+                              size="small"
+                            />
+                          </TableCell>
+                          {isAdmin() && (
+                            <TableCell align="center">
+                              <IconButton
+                                size="small"
+                                color="primary"
+                                onClick={() =>
+                                  handleOpenCategoryDialog(category)
+                                }
+                              >
+                                <EditOutlined fontSize="small" />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() =>
+                                  handleDeleteCategory(category.id)
+                                }
+                              >
+                                <DeleteOutlined fontSize="small" />
+                              </IconButton>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+
+              {/* Paginación de categorías */}
+              {filteredCategories.length > 0 && (
+                <TablePagination
+                  component="div"
+                  count={filteredCategories.length}
+                  page={categoryPage}
+                  onPageChange={(event, newPage) => setCategoryPage(newPage)}
+                  rowsPerPage={categoryRowsPerPage}
+                  onRowsPerPageChange={(event) => {
+                    setCategoryRowsPerPage(parseInt(event.target.value, 10));
+                    setCategoryPage(0);
+                  }}
+                  rowsPerPageOptions={[5, 10, 25, 50]}
+                  labelRowsPerPage="Filas por página:"
+                  labelDisplayedRows={({ from, to, count }) =>
+                    `${from}-${to} de ${count}`
+                  }
+                />
+              )}
+            </Paper>
           </Box>
-        )}
+
+          {/* MEDIOS DE PAGO */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Paper sx={{ p: 2 }}>
+              <Box sx={{ mb: 2 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    mb: 2,
+                  }}
+                >
+                  <Typography variant="h6" fontWeight={600}>
+                    Medios de Pago
+                  </Typography>
+                  {isAdmin() && (
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<AddOutlined />}
+                      onClick={() => handleOpenPaymentMethodDialog()}
+                    >
+                      Agregar
+                    </Button>
+                  )}
+                </Box>
+
+                {/* Filtros de medios de pago */}
+                <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
+                  <TextField
+                    size="small"
+                    placeholder="Buscar medio de pago..."
+                    value={paymentMethodSearchTerm}
+                    onChange={(e) => setPaymentMethodSearchTerm(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchOutlined fontSize="small" />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{ flex: 1 }}
+                  />
+                  <TextField
+                    select
+                    size="small"
+                    value={paymentMethodTypeFilter}
+                    onChange={(e) => setPaymentMethodTypeFilter(e.target.value)}
+                    sx={{ minWidth: 180 }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <FilterListOutlined fontSize="small" />
+                        </InputAdornment>
+                      ),
+                    }}
+                  >
+                    <MenuItem value="Todos">Todos</MenuItem>
+                    <MenuItem value="Efectivo">Efectivo</MenuItem>
+                    <MenuItem value="Tarjeta">Tarjeta</MenuItem>
+                    <MenuItem value="Transferencia">Transferencia</MenuItem>
+                    <MenuItem value="Billetera Virtual">
+                      Billetera Virtual
+                    </MenuItem>
+                    <MenuItem value="Otro">Otro</MenuItem>
+                  </TextField>
+                </Box>
+              </Box>
+
+              <TableContainer sx={{ maxHeight: 600 }}>
+                <Table size="small" stickyHeader>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Nombre</TableCell>
+                      <TableCell align="center">Tipo</TableCell>
+                      {isAdmin() && (
+                        <TableCell align="center">Acciones</TableCell>
+                      )}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {filteredPaymentMethods.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={isAdmin() ? 3 : 2} align="center">
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ py: 4 }}
+                          >
+                            {paymentMethodSearchTerm ||
+                            paymentMethodTypeFilter !== "Todos"
+                              ? "No se encontraron medios de pago con los filtros aplicados"
+                              : "No hay medios de pago registrados"}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      paginatedPaymentMethods.map((method) => (
+                        <TableRow key={method.id} hover>
+                          <TableCell>
+                            <Typography variant="body2" fontWeight={500}>
+                              {method.name}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Chip
+                              icon={getPaymentMethodIcon(method.type)}
+                              label={method.type}
+                              color="primary"
+                              size="small"
+                              variant="outlined"
+                            />
+                          </TableCell>
+                          {isAdmin() && (
+                            <TableCell align="center">
+                              <IconButton
+                                size="small"
+                                color="primary"
+                                onClick={() =>
+                                  handleOpenPaymentMethodDialog(method)
+                                }
+                              >
+                                <EditOutlined fontSize="small" />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() =>
+                                  handleDeletePaymentMethod(method.id)
+                                }
+                              >
+                                <DeleteOutlined fontSize="small" />
+                              </IconButton>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+
+              {/* Paginación de medios de pago */}
+              {filteredPaymentMethods.length > 0 && (
+                <TablePagination
+                  component="div"
+                  count={filteredPaymentMethods.length}
+                  page={paymentMethodPage}
+                  onPageChange={(event, newPage) =>
+                    setPaymentMethodPage(newPage)
+                  }
+                  rowsPerPage={paymentMethodRowsPerPage}
+                  onRowsPerPageChange={(event) => {
+                    setPaymentMethodRowsPerPage(
+                      parseInt(event.target.value, 10)
+                    );
+                    setPaymentMethodPage(0);
+                  }}
+                  rowsPerPageOptions={[5, 10, 25, 50]}
+                  labelRowsPerPage="Filas por página:"
+                  labelDisplayedRows={({ from, to, count }) =>
+                    `${from}-${to} de ${count}`
+                  }
+                />
+              )}
+            </Paper>
+          </Box>
+        </Box>
       </Box>
 
       <CategoryDialog
-        open={dialogOpen}
-        onClose={handleCloseDialog}
+        open={categoryDialogOpen}
+        onClose={handleCloseCategoryDialog}
         onSave={handleSaveCategory}
         category={selectedCategory}
+      />
+
+      <PaymentMethodDialog
+        open={paymentMethodDialogOpen}
+        onClose={handleClosePaymentMethodDialog}
+        onSave={handleSavePaymentMethod}
+        paymentMethod={selectedPaymentMethod}
       />
     </DashboardLayout>
   );

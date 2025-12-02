@@ -34,6 +34,7 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/context/AuthContext";
 import transactionService from "@/services/transaction.service";
 import categoryService from "@/services/category.service";
+import paymentMethodService from "@/services/paymentMethod.service";
 import TransactionDialog from "@/components/transactions/TransactionDialog";
 
 export default function TransactionsPage() {
@@ -41,12 +42,13 @@ export default function TransactionsPage() {
   const [transactions, setTransactions] = useState([]);
   const [filteredTransactions, setFilteredTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(8);
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState("Todos");
   const [currencyFilter, setCurrencyFilter] = useState("Todas");
@@ -62,12 +64,15 @@ export default function TransactionsPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [transactionsData, categoriesData] = await Promise.all([
-        transactionService.getTransactions(),
-        categoryService.getCategories(),
-      ]);
+      const [transactionsData, categoriesData, paymentMethodsData] =
+        await Promise.all([
+          transactionService.getTransactions(),
+          categoryService.getCategories(),
+          paymentMethodService.getPaymentMethods(),
+        ]);
       setTransactions(transactionsData);
       setCategories(categoriesData);
+      setPaymentMethods(paymentMethodsData);
       setError(null);
     } catch (err) {
       setError(err.response?.data?.error || "Error al cargar datos");
@@ -98,6 +103,7 @@ export default function TransactionsPage() {
         (t) =>
           t.description?.toLowerCase().includes(searchLower) ||
           t.category?.name?.toLowerCase().includes(searchLower) ||
+          t.paymentMethod?.name?.toLowerCase().includes(searchLower) ||
           t.amount.toString().includes(searchLower)
       );
     }
@@ -499,6 +505,7 @@ export default function TransactionsPage() {
                 <TableCell>Fecha</TableCell>
                 <TableCell>Tipo</TableCell>
                 <TableCell>Categoría</TableCell>
+                <TableCell>Medio de Pago</TableCell>
                 <TableCell>Descripción</TableCell>
                 <TableCell align="right">Monto</TableCell>
                 {isAdmin() && <TableCell>Acciones</TableCell>}
@@ -532,6 +539,11 @@ export default function TransactionsPage() {
                   <TableCell>
                     <Typography variant="body2">
                       {transaction.category?.name || "-"}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color="text.secondary">
+                      {transaction.paymentMethod?.name || "-"}
                     </Typography>
                   </TableCell>
                   <TableCell>
@@ -619,6 +631,7 @@ export default function TransactionsPage() {
         onSave={handleSaveTransaction}
         transaction={selectedTransaction}
         categories={categories}
+        paymentMethods={paymentMethods}
       />
     </DashboardLayout>
   );

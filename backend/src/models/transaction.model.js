@@ -44,6 +44,15 @@ export const Transaction = sequelize.define(
       },
       onDelete: "RESTRICT",
     },
+    paymentMethodId: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true,
+      references: {
+        model: "payment_methods",
+        key: "id",
+      },
+      onDelete: "SET NULL",
+    },
     userId: {
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,
