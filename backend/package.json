@@ -15,7 +15,9 @@
         "jsonwebtoken": "^9.0.2",
         "mariadb": "^3.4.5",
         "mysql2": "^3.9.7",
+        "next-auth": "^4.24.13",
         "node-telegram-bot-api": "^0.66.0",
+        "react-hot-toast": "^2.6.0",
         "sequelize": "^6.37.1"
     },
     "devDependencies": {

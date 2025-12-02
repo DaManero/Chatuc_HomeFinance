@@ -72,7 +72,7 @@ export default function TransactionsPage() {
         ]);
       setTransactions(transactionsData);
       setCategories(categoriesData);
-      setPaymentMethods(paymentMethodsData);
+      setPaymentMethods(paymentMethodsData.paymentMethods || []);
       setError(null);
     } catch (err) {
       setError(err.response?.data?.error || "Error al cargar datos");

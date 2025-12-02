@@ -10,6 +10,11 @@ import { InvestmentEarning } from "./investmentEarning.model.js";
 import PendingTransaction from "./pendingTransaction.model.js";
 import UserTelegramLink from "./userTelegramLink.model.js";
 import { PaymentMethod } from "./paymentMethod.model.js";
+import { CreditCard } from "./creditCard.model.js";
+import { CreditCardExpense } from "./creditCardExpense.model.js";
+import { CreditCardInstallment } from "./creditCardInstallment.model.js";
+import { CreditCardRecurringCharge } from "./creditCardRecurringCharge.model.js";
+import { CreditCardPayment } from "./creditCardPayment.model.js";
 
 // Definir relaciones
 User.hasMany(Category, { foreignKey: "userId", as: "categories" });
@@ -90,6 +95,94 @@ UserTelegramLink.belongsTo(User, { foreignKey: "userId", as: "user" });
 User.hasMany(PaymentMethod, { foreignKey: "userId", as: "paymentMethods" });
 PaymentMethod.belongsTo(User, { foreignKey: "userId", as: "user" });
 
+// Relaciones de Credit Cards
+User.hasMany(CreditCard, { foreignKey: "userId", as: "creditCards" });
+CreditCard.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+CreditCard.hasMany(CreditCardExpense, {
+  foreignKey: "creditCardId",
+  as: "expenses",
+});
+CreditCardExpense.belongsTo(CreditCard, {
+  foreignKey: "creditCardId",
+  as: "creditCard",
+});
+
+Category.hasMany(CreditCardExpense, {
+  foreignKey: "categoryId",
+  as: "creditCardExpenses",
+});
+CreditCardExpense.belongsTo(Category, {
+  foreignKey: "categoryId",
+  as: "category",
+});
+
+User.hasMany(CreditCardExpense, {
+  foreignKey: "userId",
+  as: "creditCardExpenses",
+});
+CreditCardExpense.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+CreditCardExpense.hasMany(CreditCardInstallment, {
+  foreignKey: "expenseId",
+  as: "installmentsList",
+});
+CreditCardInstallment.belongsTo(CreditCardExpense, {
+  foreignKey: "expenseId",
+  as: "expense",
+});
+
+CreditCard.hasMany(CreditCardRecurringCharge, {
+  foreignKey: "creditCardId",
+  as: "recurringCharges",
+});
+CreditCardRecurringCharge.belongsTo(CreditCard, {
+  foreignKey: "creditCardId",
+  as: "creditCard",
+});
+
+Category.hasMany(CreditCardRecurringCharge, {
+  foreignKey: "categoryId",
+  as: "creditCardRecurringCharges",
+});
+CreditCardRecurringCharge.belongsTo(Category, {
+  foreignKey: "categoryId",
+  as: "category",
+});
+
+User.hasMany(CreditCardRecurringCharge, {
+  foreignKey: "userId",
+  as: "creditCardRecurringCharges",
+});
+CreditCardRecurringCharge.belongsTo(User, {
+  foreignKey: "userId",
+  as: "user",
+});
+
+CreditCard.hasMany(CreditCardPayment, {
+  foreignKey: "creditCardId",
+  as: "payments",
+});
+CreditCardPayment.belongsTo(CreditCard, {
+  foreignKey: "creditCardId",
+  as: "creditCard",
+});
+
+Transaction.hasOne(CreditCardPayment, {
+  foreignKey: "transactionId",
+  as: "creditCardPayment",
+});
+CreditCardPayment.belongsTo(Transaction, {
+  foreignKey: "transactionId",
+  as: "transaction",
+});
+
+User.hasMany(CreditCardPayment, {
+  foreignKey: "userId",
+  as: "creditCardPayments",
+});
+CreditCardPayment.belongsTo(User, { foreignKey: "userId", as: "user" });
+
 export const models = {
   User,
   Category,
@@ -102,6 +195,11 @@ export const models = {
   PendingTransaction,
   UserTelegramLink,
   PaymentMethod,
+  CreditCard,
+  CreditCardExpense,
+  CreditCardInstallment,
+  CreditCardRecurringCharge,
+  CreditCardPayment,
 };
 
 export async function syncModels() {

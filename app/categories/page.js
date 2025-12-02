@@ -174,7 +174,7 @@ export default function CategoriesPage() {
     try {
       setLoadingPaymentMethods(true);
       const data = await paymentMethodService.getPaymentMethods();
-      setPaymentMethods(data);
+      setPaymentMethods(data.paymentMethods || []);
     } catch (err) {
       setError(err.response?.data?.error || "Error al cargar medios de pago");
     } finally {

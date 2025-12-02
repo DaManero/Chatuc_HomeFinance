@@ -4,7 +4,7 @@ const paymentMethodService = {
   // Obtener todos los medios de pago
   getPaymentMethods: async () => {
     const response = await api.get("/payment-methods");
-    return response.data.paymentMethods;
+    return response.data;
   },
 
   // Crear nuevo medio de pago

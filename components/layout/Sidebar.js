@@ -24,6 +24,7 @@ import {
   LogoutOutlined,
   CalendarMonthOutlined,
   HourglassBottomOutlined,
+  CreditCardOutlined,
 } from "@mui/icons-material";
 import { useAuth } from "@/context/AuthContext";
 import pendingTransactionService from "@/services/pendingTransaction.service";
@@ -47,6 +48,11 @@ const menuItems = [
     text: "Proyecciones",
     icon: <CalendarMonthOutlined />,
     path: "/gastos-fijos",
+  },
+  {
+    text: "Tarjetas de Crédito",
+    icon: <CreditCardOutlined />,
+    path: "/credit-cards",
   },
   { text: "Préstamos", icon: <AccountBalanceOutlined />, path: "/loans" },
   { text: "Inversiones", icon: <TrendingUpOutlined />, path: "/investments" },
