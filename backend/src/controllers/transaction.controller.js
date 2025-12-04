@@ -109,7 +109,10 @@ export async function getTransactions(req, res) {
           attributes: ["id", "name", "type"],
         },
       ],
-      order: [["date", "DESC"]],
+      order: [
+        ["date", "DESC"],
+        ["createdAt", "DESC"],
+      ],
     });
 
     res.json({ transactions });

@@ -25,6 +25,7 @@ import {
   CalendarMonthOutlined,
   HourglassBottomOutlined,
   CreditCardOutlined,
+  BarChartOutlined,
 } from "@mui/icons-material";
 import { useAuth } from "@/context/AuthContext";
 import pendingTransactionService from "@/services/pendingTransaction.service";
@@ -44,6 +45,11 @@ const menuItems = [
     showBadge: true,
   },
   { text: "Categorías", icon: <CategoryOutlined />, path: "/categories" },
+  {
+    text: "Estadísticas",
+    icon: <BarChartOutlined />,
+    path: "/statistics",
+  },
   {
     text: "Proyecciones",
     icon: <CalendarMonthOutlined />,

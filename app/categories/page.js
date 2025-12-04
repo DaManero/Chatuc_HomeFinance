@@ -72,7 +72,7 @@ export default function CategoriesPage() {
   const [categorySearchTerm, setCategorySearchTerm] = useState("");
   const [categoryTypeFilter, setCategoryTypeFilter] = useState("Todos");
   const [categoryPage, setCategoryPage] = useState(0);
-  const [categoryRowsPerPage, setCategoryRowsPerPage] = useState(8);
+  const [categoryRowsPerPage, setCategoryRowsPerPage] = useState(10);
 
   // Estados para medios de pago
   const [paymentMethods, setPaymentMethods] = useState([]);
@@ -83,7 +83,7 @@ export default function CategoriesPage() {
   const [paymentMethodTypeFilter, setPaymentMethodTypeFilter] =
     useState("Todos");
   const [paymentMethodPage, setPaymentMethodPage] = useState(0);
-  const [paymentMethodRowsPerPage, setPaymentMethodRowsPerPage] = useState(8);
+  const [paymentMethodRowsPerPage, setPaymentMethodRowsPerPage] = useState(10);
 
   // Estado general
   const [error, setError] = useState(null);
