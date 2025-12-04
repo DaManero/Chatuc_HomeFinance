@@ -90,6 +90,7 @@ export async function processPendingTransaction(req, res) {
       categoryName,
       description,
       date,
+      paymentMethodId,
     } = req.body;
 
     // Validaciones
@@ -140,6 +141,7 @@ export async function processPendingTransaction(req, res) {
         categoryId: category.id,
         description: description || pending.description,
         date: date || pending.transactionDate,
+        paymentMethodId: paymentMethodId || null,
         userId,
       },
       { transaction: t }

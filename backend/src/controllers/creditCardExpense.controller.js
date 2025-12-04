@@ -78,6 +78,23 @@ export async function createCreditCardExpense(req, res) {
       return res.status(404).json({ error: "Categoría no encontrada" });
     }
 
+    // Buscar o crear el medio de pago para esta tarjeta
+    let paymentMethod = await models.PaymentMethod.findOne({
+      where: {
+        name: `${creditCard.name} - ${creditCard.bank}`,
+        type: "Tarjeta",
+        userId,
+      },
+    });
+
+    if (!paymentMethod) {
+      paymentMethod = await models.PaymentMethod.create({
+        name: `${creditCard.name} - ${creditCard.bank}`,
+        type: "Tarjeta",
+        userId,
+      });
+    }
+
     // Crear el gasto
     const expense = await models.CreditCardExpense.create({
       description,
@@ -87,6 +104,18 @@ export async function createCreditCardExpense(req, res) {
       currency: currency || "ARS",
       creditCardId,
       categoryId,
+      userId,
+    });
+
+    // Crear la transacción por el monto total
+    const transaction = await models.Transaction.create({
+      amount: totalAmount,
+      date: expense.purchaseDate,
+      description: `${description} - ${creditCard.name}`,
+      type: "Egreso",
+      currency: currency || "ARS",
+      categoryId,
+      paymentMethodId: paymentMethod.id,
       userId,
     });
 

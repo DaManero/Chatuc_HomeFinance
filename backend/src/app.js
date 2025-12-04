@@ -15,6 +15,7 @@ import creditCardRouter from "./routes/creditCard.routes.js";
 import creditCardExpenseRouter from "./routes/creditCardExpense.routes.js";
 import creditCardRecurringChargeRouter from "./routes/creditCardRecurringCharge.routes.js";
 import creditCardPaymentRouter from "./routes/creditCardPayment.routes.js";
+import creditCardInstallmentRouter from "./routes/creditCardInstallment.routes.js";
 
 export function createApp() {
   const app = express();
@@ -37,6 +38,7 @@ export function createApp() {
   app.use("/credit-card-expenses", creditCardExpenseRouter);
   app.use("/credit-card-recurring-charges", creditCardRecurringChargeRouter);
   app.use("/credit-card-payments", creditCardPaymentRouter);
+  app.use("/credit-card-installments", creditCardInstallmentRouter);
 
   app.use((req, res) => {
     res.status(404).json({ error: "Not Found" });
