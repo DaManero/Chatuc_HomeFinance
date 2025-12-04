@@ -3,14 +3,24 @@ import { CreditCardOutlined } from "@mui/icons-material";
 
 // Componente para mostrar el logo de la marca de tarjeta
 export default function CardBrandIcon({ brand = "other", size = 40 }) {
+  // Convertir tamaños de texto a números
+  const numericSize =
+    typeof size === "string"
+      ? size === "small"
+        ? 24
+        : size === "medium"
+        ? 32
+        : 40
+      : size;
+
   const getBrandLogo = () => {
     switch (brand?.toLowerCase()) {
       case "visa":
         return (
           <svg
             viewBox="0 0 48 32"
-            width={size}
-            height={size * 0.67}
+            width={numericSize}
+            height={numericSize * 0.67}
             xmlns="http://www.w3.org/2000/svg"
           >
             <rect width="48" height="32" rx="4" fill="#1434CB" />
@@ -24,8 +34,8 @@ export default function CardBrandIcon({ brand = "other", size = 40 }) {
         return (
           <svg
             viewBox="0 0 48 32"
-            width={size}
-            height={size * 0.67}
+            width={numericSize}
+            height={numericSize * 0.67}
             xmlns="http://www.w3.org/2000/svg"
           >
             <rect width="48" height="32" rx="4" fill="#EB001B" />
@@ -42,8 +52,8 @@ export default function CardBrandIcon({ brand = "other", size = 40 }) {
         return (
           <svg
             viewBox="0 0 48 32"
-            width={size}
-            height={size * 0.67}
+            width={numericSize}
+            height={numericSize * 0.67}
             xmlns="http://www.w3.org/2000/svg"
           >
             <rect width="48" height="32" rx="4" fill="#006FCF" />
@@ -61,7 +71,9 @@ export default function CardBrandIcon({ brand = "other", size = 40 }) {
           </svg>
         );
       default:
-        return <CreditCardOutlined sx={{ fontSize: size, color: "#666" }} />;
+        return (
+          <CreditCardOutlined sx={{ fontSize: numericSize, color: "#666" }} />
+        );
     }
   };
 

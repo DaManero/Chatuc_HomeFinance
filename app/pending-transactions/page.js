@@ -33,12 +33,14 @@ import {
 } from "@mui/icons-material";
 import pendingTransactionService from "@/services/pendingTransaction.service";
 import categoryService from "@/services/category.service";
+import paymentMethodService from "@/services/paymentMethod.service";
 import { formatDate } from "@/utils/dateUtils";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 
 export default function PendingTransactionsPage() {
   const [pendingTransactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -56,6 +58,7 @@ export default function PendingTransactionsPage() {
     categoryName: "",
     description: "",
     transactionDate: "",
+    paymentMethodId: "",
   });
 
   useEffect(() => {
@@ -67,14 +70,17 @@ export default function PendingTransactionsPage() {
       setLoading(true);
       setError(null);
 
-      const [transactionsData, categoriesData, statsData] = await Promise.all([
-        pendingTransactionService.getPendingTransactions(statusFilter),
-        categoryService.getCategories(),
-        pendingTransactionService.getStats(),
-      ]);
+      const [transactionsData, categoriesData, paymentMethodsData, statsData] =
+        await Promise.all([
+          pendingTransactionService.getPendingTransactions(statusFilter),
+          categoryService.getCategories(),
+          paymentMethodService.getPaymentMethods(),
+          pendingTransactionService.getStats(),
+        ]);
 
       setTransactions(transactionsData);
       setCategories(categoriesData);
+      setPaymentMethods(paymentMethodsData.paymentMethods || []);
       setStats(statsData);
     } catch (err) {
       setError(
@@ -98,6 +104,7 @@ export default function PendingTransactionsPage() {
       transactionDate: transaction.transactionDate
         ? new Date(transaction.transactionDate).toISOString().split("T")[0]
         : new Date().toISOString().split("T")[0],
+      paymentMethodId: "",
     });
     setOpenDialog(true);
   };
@@ -132,6 +139,9 @@ export default function PendingTransactionsPage() {
         categoryName: selectedCategory?.name || formData.categoryName,
         description: formData.description,
         transactionDate: formData.transactionDate,
+        paymentMethodId: formData.paymentMethodId
+          ? parseInt(formData.paymentMethodId)
+          : null,
       };
 
       await pendingTransactionService.processPendingTransaction(
@@ -451,6 +461,25 @@ export default function PendingTransactionsPage() {
                   multiline
                   rows={2}
                 />
+
+                <TextField
+                  label="Medio de Pago"
+                  name="paymentMethodId"
+                  select
+                  value={formData.paymentMethodId}
+                  onChange={handleInputChange}
+                  fullWidth
+                  helperText="Opcional"
+                >
+                  <MenuItem value="">
+                    <em>Sin medio de pago</em>
+                  </MenuItem>
+                  {paymentMethods.map((pm) => (
+                    <MenuItem key={pm.id} value={pm.id}>
+                      {pm.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
 
                 <TextField
                   label="Fecha"

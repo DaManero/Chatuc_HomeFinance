@@ -39,12 +39,15 @@ import CreditCardDialog from "@/components/creditCards/CreditCardDialog";
 import CreditCardExpenseDialog from "@/components/creditCards/CreditCardExpenseDialog";
 import RecurringChargeDialog from "@/components/creditCards/RecurringChargeDialog";
 import PaymentDialog from "@/components/creditCards/PaymentDialog";
+import PendingInstallmentsTab from "@/components/creditCards/PendingInstallmentsTab";
+import ProjectionsTab from "@/components/creditCards/ProjectionsTab";
 import CardBrandIcon from "@/components/creditCards/CardBrandIcon";
 
 import creditCardService from "@/services/creditCard.service";
 import creditCardExpenseService from "@/services/creditCardExpense.service";
 import recurringChargeService from "@/services/creditCardRecurringCharge.service";
 import paymentService from "@/services/creditCardPayment.service";
+import creditCardInstallmentService from "@/services/creditCardInstallment.service";
 import categoryService from "@/services/category.service";
 import paymentMethodService from "@/services/paymentMethod.service";
 
@@ -58,6 +61,7 @@ export default function CreditCardsPage() {
   const [expenses, setExpenses] = useState([]);
   const [recurringCharges, setRecurringCharges] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [pendingInstallments, setPendingInstallments] = useState([]);
   const [categories, setCategories] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [projections, setProjections] = useState(null);
@@ -89,18 +93,26 @@ export default function CreditCardsPage() {
         paymentMethodService.getPaymentMethods(),
       ]);
       setCreditCards(cardsRes.creditCards || []);
-      setCategories(categoriesRes.data || []);
+      setCategories(categoriesRes || []);
       setPaymentMethods(paymentMethodsRes.paymentMethods || []);
 
       if (activeTab === 1) {
         const expensesRes = await creditCardExpenseService.getExpenses();
-        setExpenses(expensesRes.data || []);
+        setExpenses(expensesRes || []);
       } else if (activeTab === 2) {
         const chargesRes = await recurringChargeService.getRecurringCharges();
-        setRecurringCharges(chargesRes.data || []);
+        setRecurringCharges(chargesRes || []);
       } else if (activeTab === 3) {
         const paymentsRes = await paymentService.getPayments();
-        setPayments(paymentsRes.data || []);
+        setPayments(paymentsRes.payments || []);
+      } else if (activeTab === 4) {
+        const installmentsRes =
+          await creditCardInstallmentService.getPendingInstallments();
+        setPendingInstallments(installmentsRes || []);
+      } else if (activeTab === 5) {
+        const installmentsRes =
+          await creditCardInstallmentService.getPendingInstallments();
+        setPendingInstallments(installmentsRes || []);
       }
     } catch (error) {
       console.error("Error loading data:", error);
@@ -120,13 +132,19 @@ export default function CreditCardsPage() {
     try {
       if (activeTab === 1) {
         const res = await creditCardExpenseService.getExpenses();
-        setExpenses(res.data || []);
+        setExpenses(res || []);
       } else if (activeTab === 2) {
         const res = await recurringChargeService.getRecurringCharges();
-        setRecurringCharges(res.data || []);
+        setRecurringCharges(res || []);
       } else if (activeTab === 3) {
         const res = await paymentService.getPayments();
         setPayments(res.payments || []);
+      } else if (activeTab === 4) {
+        const res = await creditCardInstallmentService.getPendingInstallments();
+        setPendingInstallments(res || []);
+      } else if (activeTab === 5) {
+        const res = await creditCardInstallmentService.getPendingInstallments();
+        setPendingInstallments(res || []);
       }
     } catch (error) {
       console.error("Error loading tab data:", error);
@@ -262,6 +280,20 @@ export default function CreditCardsPage() {
     }
   };
 
+  const handleMarkInstallmentAsPaid = async (installmentId) => {
+    try {
+      await creditCardInstallmentService.markAsPaid(installmentId);
+      toast.success("Cuota marcada como pagada");
+      // Recargar cuotas pendientes
+      const res = await creditCardInstallmentService.getPendingInstallments();
+      setPendingInstallments(res || []);
+    } catch (error) {
+      toast.error(
+        error.response?.data?.error || "Error al marcar cuota como pagada"
+      );
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -391,6 +423,8 @@ export default function CreditCardsPage() {
             <Tab label="Gastos" />
             <Tab label="Débitos Automáticos" />
             <Tab label="Historial de Pagos" />
+            <Tab label="Cuotas Pendientes" />
+            <Tab label="Proyecciones" />
           </Tabs>
         </Box>
 
@@ -548,9 +582,7 @@ export default function CreditCardsPage() {
                           <IconButton
                             size="small"
                             color="error"
-                            onClick={() =>
-                              handleDeleteRecurringCharge(charge.id)
-                            }
+                            onClick={() => handleDeleteCharge(charge.id)}
                           >
                             <DeleteOutlined fontSize="small" />
                           </IconButton>
@@ -617,6 +649,19 @@ export default function CreditCardsPage() {
               </Table>
             </TableContainer>
           </Box>
+        )}
+
+        {/* Pending Installments Tab */}
+        {activeTab === 4 && (
+          <PendingInstallmentsTab
+            pendingInstallments={pendingInstallments}
+            onMarkAsPaid={handleMarkInstallmentAsPaid}
+          />
+        )}
+
+        {/* Projections Tab */}
+        {activeTab === 5 && (
+          <ProjectionsTab pendingInstallments={pendingInstallments} />
         )}
 
         {/* Dialogs */}

@@ -208,10 +208,12 @@ export default function TransactionsPage() {
   const totals = transactions
     .filter((t) => {
       const transactionDate = new Date(t.date + "T00:00:00");
-      return (
+      const isCurrentMonth =
         transactionDate.getMonth() === currentMonth &&
-        transactionDate.getFullYear() === currentYear
-      );
+        transactionDate.getFullYear() === currentYear;
+      // Excluir transacciones con medio de pago tipo "Tarjeta" del balance
+      const isCreditCardPayment = t.paymentMethod?.type === "Tarjeta";
+      return isCurrentMonth && !isCreditCardPayment;
     })
     .reduce((acc, t) => {
       const currency = t.currency || "ARS";
