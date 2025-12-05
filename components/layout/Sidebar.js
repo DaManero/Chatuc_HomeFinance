@@ -46,11 +46,6 @@ const menuItems = [
   },
   { text: "Categorías", icon: <CategoryOutlined />, path: "/categories" },
   {
-    text: "Estadísticas",
-    icon: <BarChartOutlined />,
-    path: "/statistics",
-  },
-  {
     text: "Proyecciones",
     icon: <CalendarMonthOutlined />,
     path: "/gastos-fijos",

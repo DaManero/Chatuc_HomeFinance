@@ -21,6 +21,7 @@ import {
   Tab,
   Alert,
   CircularProgress,
+  TablePagination,
 } from "@mui/material";
 import {
   AddOutlined,
@@ -77,6 +78,10 @@ export default function CreditCardsPage() {
     open: false,
     data: null,
   });
+
+  // Pagination states
+  const [chargePage, setChargePage] = useState(0);
+  const [chargeRowsPerPage, setChargeRowsPerPage] = useState(7);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -419,29 +424,16 @@ export default function CreditCardsPage() {
         {/* Tabs */}
         <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
           <Tabs value={activeTab} onChange={(e, val) => setActiveTab(val)}>
-            <Tab label="Resumen" />
             <Tab label="Gastos" />
             <Tab label="Débitos Automáticos" />
-            <Tab label="Historial de Pagos" />
             <Tab label="Cuotas Pendientes" />
+            <Tab label="Historial de Pagos" />
             <Tab label="Proyecciones" />
           </Tabs>
         </Box>
 
-        {/* Summary Tab */}
-        {activeTab === 0 && (
-          <Box>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Resumen
-            </Typography>
-            <Alert severity="info">
-              Contenido del resumen de tarjetas de crédito.
-            </Alert>
-          </Box>
-        )}
-
         {/* Expenses Tab */}
-        {activeTab === 1 && (
+        {activeTab === 0 && (
           <Box>
             <Box
               sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}
@@ -517,21 +509,88 @@ export default function CreditCardsPage() {
         )}
 
         {/* Recurring Charges Tab */}
-        {activeTab === 2 && (
+        {activeTab === 1 && (
           <Box>
             <Box
-              sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 2,
+              }}
             >
               <Typography variant="h6">Débitos Automáticos</Typography>
-              <Button
-                variant="contained"
-                startIcon={<AddOutlined />}
-                onClick={() => setChargeDialog({ open: true, data: null })}
-                disabled={creditCards.length === 0}
-              >
-                Nuevo Débito
-              </Button>
+              <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+                {/* Totales */}
+                {recurringCharges.length > 0 && (
+                  <>
+                    <Box
+                      sx={{
+                        px: 2,
+                        py: 1,
+                        bgcolor: "primary.50",
+                        borderRadius: 1,
+                        border: "1px solid",
+                        borderColor: "primary.200",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                      }}
+                    >
+                      <Typography variant="caption" color="text.secondary">
+                        Total ARS:
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        ${" "}
+                        {recurringCharges
+                          .filter((c) => c.isActive && c.currency === "ARS")
+                          .reduce(
+                            (sum, c) => sum + parseFloat(c.amount || 0),
+                            0
+                          )
+                          .toFixed(2)}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        px: 2,
+                        py: 1,
+                        bgcolor: "success.50",
+                        borderRadius: 1,
+                        border: "1px solid",
+                        borderColor: "success.200",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                      }}
+                    >
+                      <Typography variant="caption" color="text.secondary">
+                        Total USD:
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        U$S{" "}
+                        {recurringCharges
+                          .filter((c) => c.isActive && c.currency === "USD")
+                          .reduce(
+                            (sum, c) => sum + parseFloat(c.amount || 0),
+                            0
+                          )
+                          .toFixed(2)}
+                      </Typography>
+                    </Box>
+                  </>
+                )}
+                <Button
+                  variant="contained"
+                  startIcon={<AddOutlined />}
+                  onClick={() => setChargeDialog({ open: true, data: null })}
+                  disabled={creditCards.length === 0}
+                >
+                  Nuevo Débito
+                </Button>
+              </Box>
             </Box>
+
             <TableContainer component={Paper}>
               <Table>
                 <TableHead>
@@ -553,45 +612,68 @@ export default function CreditCardsPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    recurringCharges.map((charge) => (
-                      <TableRow key={charge.id}>
-                        <TableCell>{charge.description}</TableCell>
-                        <TableCell>{charge.creditCard?.name || "-"}</TableCell>
-                        <TableCell>
-                          {charge.currency} {charge.amount?.toFixed(2)}
-                        </TableCell>
-                        <TableCell>{charge.chargeDay}</TableCell>
-                        <TableCell>{charge.category?.name || "-"}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={charge.isActive ? "Activo" : "Inactivo"}
-                            color={charge.isActive ? "success" : "default"}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() =>
-                              setChargeDialog({ open: true, data: charge })
-                            }
-                          >
-                            <EditOutlined fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleDeleteCharge(charge.id)}
-                          >
-                            <DeleteOutlined fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    recurringCharges
+                      .slice(
+                        chargePage * chargeRowsPerPage,
+                        chargePage * chargeRowsPerPage + chargeRowsPerPage
+                      )
+                      .map((charge) => (
+                        <TableRow key={charge.id}>
+                          <TableCell>{charge.description}</TableCell>
+                          <TableCell>
+                            {charge.creditCard?.name || "-"}
+                          </TableCell>
+                          <TableCell>
+                            {charge.currency} {charge.amount?.toFixed(2)}
+                          </TableCell>
+                          <TableCell>{charge.chargeDay}</TableCell>
+                          <TableCell>{charge.category?.name || "-"}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={charge.isActive ? "Activo" : "Inactivo"}
+                              color={charge.isActive ? "success" : "default"}
+                              size="small"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() =>
+                                setChargeDialog({ open: true, data: charge })
+                              }
+                            >
+                              <EditOutlined fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteCharge(charge.id)}
+                            >
+                              <DeleteOutlined fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))
                   )}
                 </TableBody>
               </Table>
+              <TablePagination
+                rowsPerPageOptions={[5, 7, 10, 25]}
+                component="div"
+                count={recurringCharges.length}
+                rowsPerPage={chargeRowsPerPage}
+                page={chargePage}
+                onPageChange={(e, newPage) => setChargePage(newPage)}
+                onRowsPerPageChange={(e) => {
+                  setChargeRowsPerPage(parseInt(e.target.value, 10));
+                  setChargePage(0);
+                }}
+                labelRowsPerPage="Filas por página:"
+                labelDisplayedRows={({ from, to, count }) =>
+                  `${from}-${to} de ${count}`
+                }
+              />
             </TableContainer>
           </Box>
         )}
@@ -652,7 +734,7 @@ export default function CreditCardsPage() {
         )}
 
         {/* Pending Installments Tab */}
-        {activeTab === 4 && (
+        {activeTab === 2 && (
           <PendingInstallmentsTab
             pendingInstallments={pendingInstallments}
             onMarkAsPaid={handleMarkInstallmentAsPaid}
@@ -660,7 +742,7 @@ export default function CreditCardsPage() {
         )}
 
         {/* Projections Tab */}
-        {activeTab === 5 && (
+        {activeTab === 4 && (
           <ProjectionsTab pendingInstallments={pendingInstallments} />
         )}
 

@@ -109,6 +109,45 @@ export default function StatisticsPage() {
     return `${MONTHS_ES[parseInt(month) - 1]} ${year.slice(2)}`;
   };
 
+  // Generar datos completos desde DIC 25 hasta DIC 26
+  const generateFullYearData = () => {
+    const allMonths = [];
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth();
+
+    // Generar desde Diciembre 2025 hasta Diciembre 2026 (13 meses)
+    for (let i = 0; i <= 12; i++) {
+      let month = 11 + i; // Empezar en diciembre (11)
+      let year = 2025;
+
+      if (month > 11) {
+        month = month - 12;
+        year = 2026;
+      }
+
+      const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+      allMonths.push(monthKey);
+    }
+
+    // Crear un mapa de los datos existentes
+    const dataMap = {};
+    stats.monthlyBalance.forEach((m) => {
+      dataMap[m.month] = m;
+    });
+
+    // Generar los datos completos
+    return allMonths.map((monthKey) => {
+      const existingData = dataMap[monthKey];
+      return {
+        month: formatMonthLabel(monthKey),
+        Ingresos: existingData ? existingData.income : 0,
+        Egresos: existingData ? existingData.expenses : 0,
+        Balance: existingData ? existingData.balance : 0,
+      };
+    });
+  };
+
   const getTrendIcon = (trend) => {
     if (trend === "up") return <TrendingUpOutlined color="success" />;
     if (trend === "down") return <TrendingDownOutlined color="error" />;
@@ -584,18 +623,18 @@ export default function StatisticsPage() {
 
         {/* Tab 1: Ingresos */}
         {activeTab === 1 && (
-          <Box>
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={8}>
+          <Box sx={{ width: "100%" }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} lg={9.6}>
                 <Paper
                   elevation={0}
                   sx={{ p: 3, border: "1px solid", borderColor: "grey.200" }}
                 >
                   <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
-                    Evolución de Ingresos
+                    Evolución de Ingresos (DIC 25 - DIC 26)
                   </Typography>
                   <ResponsiveContainer width="100%" height={450}>
-                    <LineChart data={monthlyChartData}>
+                    <LineChart data={generateFullYearData()}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                       <XAxis
                         dataKey="month"
@@ -624,39 +663,7 @@ export default function StatisticsPage() {
                 </Paper>
               </Grid>
 
-              <Grid item xs={12} md={4}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 3,
-                    border: "1px solid",
-                    borderColor: "grey.200",
-                    mb: 2,
-                  }}
-                >
-                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                    Ingresos del Mes
-                  </Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
-                    {formatCurrency(stats.monthlyComparison.current.income)}
-                  </Typography>
-                  <Chip
-                    label={`${
-                      stats.monthlyComparison.comparison.incomeChange > 0
-                        ? "+"
-                        : ""
-                    }${stats.monthlyComparison.comparison.incomeChange.toFixed(
-                      1
-                    )}%`}
-                    size="small"
-                    color={
-                      stats.monthlyComparison.comparison.incomeChange > 0
-                        ? "success"
-                        : "error"
-                    }
-                  />
-                </Paper>
-
+              <Grid item xs={12} lg={2.4}>
                 <Paper
                   elevation={0}
                   sx={{ p: 3, border: "1px solid", borderColor: "grey.200" }}
