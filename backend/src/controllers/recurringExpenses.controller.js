@@ -9,9 +9,34 @@ export async function getRecurringProjection(req, res) {
       order: [["name", "ASC"]],
     });
 
-    // Para cada categoría, buscar la última transacción
+    // Obtener el primer y último día del mes actual
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    // Para cada categoría, buscar todas las transacciones del mes actual
     const projections = await Promise.all(
       recurringCategories.map(async (category) => {
+        // Buscar todas las transacciones del mes actual para esta categoría
+        const currentMonthTransactions = await models.Transaction.findAll({
+          where: {
+            categoryId: category.id,
+            date: {
+              [Op.between]: [
+                firstDay.toISOString().split("T")[0],
+                lastDay.toISOString().split("T")[0],
+              ],
+            },
+          },
+        });
+
+        // Sumar todas las transacciones del mes actual
+        const totalAmount = currentMonthTransactions.reduce(
+          (sum, t) => sum + parseFloat(t.amount),
+          0
+        );
+
+        // Obtener la última transacción para mostrar la fecha
         const lastTransaction = await models.Transaction.findOne({
           where: { categoryId: category.id },
           order: [["date", "DESC"]],
@@ -21,11 +46,10 @@ export async function getRecurringProjection(req, res) {
           categoryId: category.id,
           categoryName: category.name,
           type: category.type,
-          lastAmount: lastTransaction ? parseFloat(lastTransaction.amount) : 0,
+          lastAmount: totalAmount,
           lastDate: lastTransaction ? lastTransaction.date : null,
-          projectedAmount: lastTransaction
-            ? parseFloat(lastTransaction.amount)
-            : 0,
+          projectedAmount: totalAmount,
+          transactionCount: currentMonthTransactions.length,
         };
       })
     );
