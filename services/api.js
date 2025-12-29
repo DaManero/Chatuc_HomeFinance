@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Configuración base de axios
 const api = axios.create({
-  baseURL: "http://localhost:3000", // URL del backend
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000", // URL del backend
   headers: {
     "Content-Type": "application/json",
   },
