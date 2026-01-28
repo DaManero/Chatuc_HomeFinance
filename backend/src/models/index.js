@@ -20,6 +20,17 @@ import { CreditCardPayment } from "./creditCardPayment.model.js";
 User.hasMany(Category, { foreignKey: "userId", as: "categories" });
 Category.belongsTo(User, { foreignKey: "userId", as: "user" });
 
+// Relación auto-referencial para categorías y subcategorías
+Category.hasMany(Category, {
+  foreignKey: "parentCategoryId",
+  as: "subcategories",
+  onDelete: "CASCADE",
+});
+Category.belongsTo(Category, {
+  foreignKey: "parentCategoryId",
+  as: "parentCategory",
+});
+
 User.hasMany(Transaction, { foreignKey: "userId", as: "transactions" });
 Transaction.belongsTo(User, { foreignKey: "userId", as: "user" });
 

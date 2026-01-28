@@ -53,38 +53,21 @@ export async function getCategories(req, res) {
     }
 
     // Si includeSubcategories es "false", solo traer categorías principales
-    // Si es true o undefined, solo traer categorías principales pero con sus subcategorías incluidas
-    where.parentCategoryId = null;
+    if (includeSubcategories === "false") {
+      where.parentCategoryId = null;
+    }
 
     const categories = await models.Category.findAll({
       where,
-      include:
-        includeSubcategories !== "false"
-          ? [
-              {
-                model: models.Category,
-                as: "subcategories",
-                required: false,
-              },
-            ]
-          : [],
+      include: includeSubcategories !== "false" ? [
+        {
+          model: models.Category,
+          as: "subcategories",
+          required: false,
+        },
+      ] : [],
       order: [
-        ["name", "ASC"],
-        [{ model: models.Category, as: "subcategories" }, "name", "ASC"],
-      ],
-    });
-
-    res.json({ categories });
-  } catch (err) {
-    console.error("Error en getCategories:", err);
-    res.status(500).json({ error: "Error al obtener categorías" });
-  }
-}
-
-export async function updateCategory(req, res) {
-  try {
-    const { id } = req.params;
-    const { name, type, isRecurring, parentCategoryId } = req.body;
+        ["parentCategoryId", "ASC N, parentCategoryId } = req.body;
     const userId = req.user.userId;
 
     const category = await models.Category.findOne({
@@ -103,9 +86,7 @@ export async function updateCategory(req, res) {
 
     // Validar que no se pueda hacer una categoría hija de sí misma
     if (parentCategoryId && parseInt(parentCategoryId) === parseInt(id)) {
-      return res
-        .status(400)
-        .json({ error: "Una categoría no puede ser hija de sí misma" });
+      return res.status(400).json({ error: "Una categoría no puede ser hija de sí misma" });
     }
 
     // Si tiene categoría padre, validar que exista
@@ -121,8 +102,32 @@ export async function updateCategory(req, res) {
     if (name) category.name = name;
     if (type) category.type = type;
     if (isRecurring !== undefined) category.isRecurring = isRecurring;
-    if (parentCategoryId !== undefined)
-      category.parentCategoryId = parentCategoryId || null;
+    if (parentCategoryId !== undefined) category.parentCategoryId = parentCategoryId || null
+}
+
+export async function updateCategory(req, res) {
+  try {
+    const { id } = req.params;
+    const { name, type, isRecurring } = req.body;
+    const userId = req.user.userId;
+
+    const category = await models.Category.findOne({
+      where: { id, userId },
+    });
+
+    if (!category) {
+      return res.status(404).json({ error: "Categoría no encontrada" });
+    }
+
+    if (type && !["Ingreso", "Egreso"].includes(type)) {
+      return res
+        .status(400)
+        .json({ error: 'Tipo debe ser "Ingreso" o "Egreso"' });
+    }
+
+    if (name) category.name = name;
+    if (type) category.type = type;
+    if (isRecurring !== undefined) category.isRecurring = isRecurring;
 
     await category.save();
 

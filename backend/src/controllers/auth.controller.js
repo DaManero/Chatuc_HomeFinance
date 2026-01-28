@@ -1,4 +1,4 @@
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { models } from "../models/index.js";
 import { generateAccessToken, generateRefreshToken } from "../utils/jwt.js";
 
@@ -67,11 +67,9 @@ export async function login(req, res) {
 
     // Verificar si el usuario está activo
     if (!user.isActive) {
-      return res
-        .status(403)
-        .json({
-          error: "Usuario desactivado, contactese con el administrador",
-        });
+      return res.status(403).json({
+        error: "Usuario desactivado, contactese con el administrador",
+      });
     }
 
     // Verificar contraseña

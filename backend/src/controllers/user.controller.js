@@ -1,5 +1,5 @@
 import { models } from "../models/index.js";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
 export async function getUsers(req, res) {
   try {

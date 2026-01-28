@@ -23,6 +23,16 @@ export const Category = sequelize.define(
       defaultValue: false,
       comment: "Indica si es una categoría de gasto/ingreso fijo mensual",
     },
+    parentCategoryId: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true,
+      references: {
+        model: "categories",
+        key: "id",
+      },
+      onDelete: "CASCADE",
+      comment: "ID de la categoría padre (null si es categoría principal)",
+    },
     userId: {
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,
@@ -37,5 +47,5 @@ export const Category = sequelize.define(
     tableName: "categories",
     timestamps: true,
     underscored: true,
-  }
+  },
 );
