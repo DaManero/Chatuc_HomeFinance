@@ -17,6 +17,8 @@
         "mysql2": "^3.9.7",
         "next-auth": "^4.24.13",
         "node-telegram-bot-api": "^0.66.0",
+        "pg": "^8.17.2",
+        "pg-hstore": "^2.3.4",
         "react-hot-toast": "^2.6.0",
         "sequelize": "^6.37.1"
     },
