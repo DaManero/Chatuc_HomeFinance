@@ -38,13 +38,14 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env.docker
+.env.staging
 
 # Keep example files
 !.env.example
 
-# vercel
-.vercel
+# Docker
+docker-compose.override.yml
+.docker/
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import {
   Box,
   Typography,
@@ -36,6 +36,9 @@ import {
   MoreHorizOutlined,
   SearchOutlined,
   FilterListOutlined,
+  ExpandMoreOutlined,
+  ExpandLessOutlined,
+  SubdirectoryArrowRightOutlined,
 } from "@mui/icons-material";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/context/AuthContext";
@@ -73,6 +76,7 @@ export default function CategoriesPage() {
   const [categoryTypeFilter, setCategoryTypeFilter] = useState("Todos");
   const [categoryPage, setCategoryPage] = useState(0);
   const [categoryRowsPerPage, setCategoryRowsPerPage] = useState(10);
+  const [expandedCategories, setExpandedCategories] = useState(new Set());
 
   // Estados para medios de pago
   const [paymentMethods, setPaymentMethods] = useState([]);
@@ -150,6 +154,18 @@ export default function CategoriesPage() {
     }
   };
 
+  const handleToggleExpand = (categoryId) => {
+    setExpandedCategories((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(categoryId)) {
+        newSet.delete(categoryId);
+      } else {
+        newSet.add(categoryId);
+      }
+      return newSet;
+    });
+  };
+
   const handleDeleteCategory = async (categoryId) => {
     if (!isAdmin()) {
       alert("No tienes permisos para eliminar categorías");
@@ -197,7 +213,7 @@ export default function CategoriesPage() {
       if (selectedPaymentMethod) {
         await paymentMethodService.updatePaymentMethod(
           selectedPaymentMethod.id,
-          paymentMethodData
+          paymentMethodData,
         );
       } else {
         await paymentMethodService.createPaymentMethod(paymentMethodData);
@@ -230,19 +246,21 @@ export default function CategoriesPage() {
   };
 
   // ===== FILTROS Y PAGINACIÓN =====
-  // Categorías filtradas y paginadas
-  const filteredCategories = categories.filter((cat) => {
-    const matchesSearch = cat.name
-      .toLowerCase()
-      .includes(categorySearchTerm.toLowerCase());
-    const matchesType =
-      categoryTypeFilter === "Todos" || cat.type === categoryTypeFilter;
-    return matchesSearch && matchesType;
-  });
+  // Categorías filtradas y paginadas (solo principales)
+  const filteredCategories = categories
+    .filter((cat) => !cat.parentCategoryId) // Solo categorías principales
+    .filter((cat) => {
+      const matchesSearch = cat.name
+        .toLowerCase()
+        .includes(categorySearchTerm.toLowerCase());
+      const matchesType =
+        categoryTypeFilter === "Todos" || cat.type === categoryTypeFilter;
+      return matchesSearch && matchesType;
+    });
 
   const paginatedCategories = filteredCategories.slice(
     categoryPage * categoryRowsPerPage,
-    categoryPage * categoryRowsPerPage + categoryRowsPerPage
+    categoryPage * categoryRowsPerPage + categoryRowsPerPage,
   );
 
   // Medios de pago filtrados y paginados
@@ -258,7 +276,7 @@ export default function CategoriesPage() {
 
   const paginatedPaymentMethods = filteredPaymentMethods.slice(
     paymentMethodPage * paymentMethodRowsPerPage,
-    paymentMethodPage * paymentMethodRowsPerPage + paymentMethodRowsPerPage
+    paymentMethodPage * paymentMethodRowsPerPage + paymentMethodRowsPerPage,
   );
 
   const loading = loadingCategories || loadingPaymentMethods;
@@ -360,6 +378,7 @@ export default function CategoriesPage() {
                 <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow>
+                      <TableCell width={50}></TableCell>
                       <TableCell>Nombre</TableCell>
                       <TableCell align="center">Tipo</TableCell>
                       <TableCell align="center">Fija</TableCell>
@@ -371,7 +390,7 @@ export default function CategoriesPage() {
                   <TableBody>
                     {filteredCategories.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={isAdmin() ? 4 : 3} align="center">
+                        <TableCell colSpan={isAdmin() ? 5 : 4} align="center">
                           <Typography
                             variant="body2"
                             color="text.secondary"
@@ -386,62 +405,162 @@ export default function CategoriesPage() {
                       </TableRow>
                     ) : (
                       paginatedCategories.map((category) => (
-                        <TableRow key={category.id} hover>
-                          <TableCell>
-                            <Typography variant="body2" fontWeight={500}>
-                              {category.name}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="center">
-                            <Chip
-                              icon={
-                                category.type === "Ingreso" ? (
-                                  <TrendingUpOutlined />
-                                ) : (
-                                  <TrendingDownOutlined />
-                                )
-                              }
-                              label={category.type}
-                              color={
-                                category.type === "Ingreso"
-                                  ? "success"
-                                  : "error"
-                              }
-                              size="small"
-                              variant="outlined"
-                            />
-                          </TableCell>
-                          <TableCell align="center">
-                            <Switch
-                              checked={category.isRecurring || false}
-                              onChange={() => handleToggleRecurring(category)}
-                              disabled={!isAdmin()}
-                              size="small"
-                            />
-                          </TableCell>
-                          {isAdmin() && (
-                            <TableCell align="center">
-                              <IconButton
-                                size="small"
-                                color="primary"
-                                onClick={() =>
-                                  handleOpenCategoryDialog(category)
-                                }
-                              >
-                                <EditOutlined fontSize="small" />
-                              </IconButton>
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={() =>
-                                  handleDeleteCategory(category.id)
-                                }
-                              >
-                                <DeleteOutlined fontSize="small" />
-                              </IconButton>
+                        <Fragment key={category.id}>
+                          <TableRow hover>
+                            <TableCell>
+                              {category.subcategories &&
+                              category.subcategories.length > 0 ? (
+                                <IconButton
+                                  size="small"
+                                  onClick={() =>
+                                    handleToggleExpand(category.id)
+                                  }
+                                >
+                                  {expandedCategories.has(category.id) ? (
+                                    <ExpandLessOutlined fontSize="small" />
+                                  ) : (
+                                    <ExpandMoreOutlined fontSize="small" />
+                                  )}
+                                </IconButton>
+                              ) : null}
                             </TableCell>
-                          )}
-                        </TableRow>
+                            <TableCell>
+                              <Typography variant="body2" fontWeight={500}>
+                                {category.name}
+                                {category.subcategories &&
+                                  category.subcategories.length > 0 && (
+                                    <Chip
+                                      label={category.subcategories.length}
+                                      size="small"
+                                      sx={{ ml: 1, height: 20 }}
+                                    />
+                                  )}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Chip
+                                icon={
+                                  category.type === "Ingreso" ? (
+                                    <TrendingUpOutlined />
+                                  ) : (
+                                    <TrendingDownOutlined />
+                                  )
+                                }
+                                label={category.type}
+                                color={
+                                  category.type === "Ingreso"
+                                    ? "success"
+                                    : "error"
+                                }
+                                size="small"
+                                variant="outlined"
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Switch
+                                checked={category.isRecurring || false}
+                                onChange={() => handleToggleRecurring(category)}
+                                disabled={!isAdmin()}
+                                size="small"
+                              />
+                            </TableCell>
+                            {isAdmin() && (
+                              <TableCell align="center">
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  onClick={() =>
+                                    handleOpenCategoryDialog(category)
+                                  }
+                                >
+                                  <EditOutlined fontSize="small" />
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() =>
+                                    handleDeleteCategory(category.id)
+                                  }
+                                >
+                                  <DeleteOutlined fontSize="small" />
+                                </IconButton>
+                              </TableCell>
+                            )}
+                          </TableRow>
+
+                          {/* Subcategorías expandibles */}
+                          {expandedCategories.has(category.id) &&
+                            category.subcategories &&
+                            category.subcategories.map((subcat) => (
+                              <TableRow
+                                key={`sub-${subcat.id}`}
+                                sx={{ bgcolor: "action.hover" }}
+                              >
+                                <TableCell></TableCell>
+                                <TableCell>
+                                  <Box
+                                    sx={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      pl: 2,
+                                    }}
+                                  >
+                                    <SubdirectoryArrowRightOutlined
+                                      fontSize="small"
+                                      sx={{ mr: 1, color: "text.secondary" }}
+                                    />
+                                    <Typography variant="body2">
+                                      {subcat.name}
+                                    </Typography>
+                                  </Box>
+                                </TableCell>
+                                <TableCell align="center">
+                                  <Chip
+                                    label={subcat.type}
+                                    color={
+                                      subcat.type === "Ingreso"
+                                        ? "success"
+                                        : "error"
+                                    }
+                                    size="small"
+                                    variant="outlined"
+                                  />
+                                </TableCell>
+                                <TableCell align="center">
+                                  <Switch
+                                    checked={subcat.isRecurring || false}
+                                    onChange={() =>
+                                      handleToggleRecurring(subcat)
+                                    }
+                                    disabled={!isAdmin()}
+                                    size="small"
+                                  />
+                                </TableCell>
+                                {isAdmin() && (
+                                  <TableCell align="center">
+                                    <IconButton
+                                      size="small"
+                                      color="primary"
+                                      onClick={() =>
+                                        handleOpenCategoryDialog(subcat)
+                                      }
+                                    >
+                                      <EditOutlined fontSize="small" />
+                                    </IconButton>
+                                    <IconButton
+                                      size="small"
+                                      color="error"
+                                      onClick={() =>
+                                        handleDeleteCategory(subcat.id)
+                                      }
+                                    >
+                                      <DeleteOutlined fontSize="small" />
+                                    </IconButton>
+                                  </TableCell>
+                                )}
+                              </TableRow>
+                            ))}
+                        </Fragment>
                       ))
                     )}
                   </TableBody>
@@ -624,7 +743,7 @@ export default function CategoriesPage() {
                   rowsPerPage={paymentMethodRowsPerPage}
                   onRowsPerPageChange={(event) => {
                     setPaymentMethodRowsPerPage(
-                      parseInt(event.target.value, 10)
+                      parseInt(event.target.value, 10),
                     );
                     setPaymentMethodPage(0);
                   }}
@@ -645,6 +764,7 @@ export default function CategoriesPage() {
         onClose={handleCloseCategoryDialog}
         onSave={handleSaveCategory}
         category={selectedCategory}
+        parentCategories={categories}
       />
 
       <PaymentMethodDialog

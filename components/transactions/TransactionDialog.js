@@ -15,6 +15,8 @@ import {
   FormHelperText,
   IconButton,
   InputAdornment,
+  ListSubheader,
+  Typography,
 } from "@mui/material";
 import { CloseOutlined } from "@mui/icons-material";
 
@@ -116,7 +118,12 @@ export default function TransactionDialog({
 
   // Filtrar categorías según el tipo seleccionado
   const filteredCategories = categories.filter(
-    (cat) => cat.type === formData.type
+    (cat) => cat.type === formData.type && !cat.parentCategoryId,
+  );
+
+  // Obtener todas las subcategorías para el selector
+  const allSubcategories = categories.filter(
+    (cat) => cat.type === formData.type && cat.parentCategoryId,
   );
 
   return (
@@ -208,16 +215,48 @@ export default function TransactionDialog({
             onChange={handleChange}
             label="Categoría"
           >
-            {filteredCategories.length === 0 ? (
+            {filteredCategories.length === 0 &&
+            allSubcategories.length === 0 ? (
               <MenuItem disabled>
                 No hay categorías de tipo {formData.type}
               </MenuItem>
             ) : (
-              filteredCategories.map((cat) => (
-                <MenuItem key={cat.id} value={cat.id}>
-                  {cat.name}
-                </MenuItem>
-              ))
+              filteredCategories.map((mainCat) => {
+                const subcats = allSubcategories.filter(
+                  (sub) => sub.parentCategoryId === mainCat.id,
+                );
+
+                return [
+                  <ListSubheader key={`header-${mainCat.id}`}>
+                    <Typography
+                      variant="body2"
+                      fontWeight={600}
+                      color="primary"
+                    >
+                      {mainCat.name}
+                    </Typography>
+                  </ListSubheader>,
+                  ...(subcats.length > 0
+                    ? subcats.map((subcat) => (
+                        <MenuItem
+                          key={subcat.id}
+                          value={subcat.id}
+                          sx={{ pl: 4 }}
+                        >
+                          {subcat.name}
+                        </MenuItem>
+                      ))
+                    : [
+                        <MenuItem
+                          key={mainCat.id}
+                          value={mainCat.id}
+                          sx={{ pl: 4, fontStyle: "italic" }}
+                        >
+                          (Sin subcategorías)
+                        </MenuItem>,
+                      ]),
+                ];
+              })
             )}
           </Select>
           {errors.categoryId && (

@@ -67,7 +67,7 @@ export default function TransactionsPage() {
       const [transactionsData, categoriesData, paymentMethodsData] =
         await Promise.all([
           transactionService.getTransactions(),
-          categoryService.getCategories(),
+          categoryService.getCategoriesFlat(),
           paymentMethodService.getPaymentMethods(),
         ]);
       setTransactions(transactionsData);
@@ -92,7 +92,7 @@ export default function TransactionsPage() {
     // Filtrar por moneda
     if (currencyFilter !== "Todas") {
       filtered = filtered.filter(
-        (t) => (t.currency || "ARS") === currencyFilter
+        (t) => (t.currency || "ARS") === currencyFilter,
       );
     }
 
@@ -104,7 +104,7 @@ export default function TransactionsPage() {
           t.description?.toLowerCase().includes(searchLower) ||
           t.category?.name?.toLowerCase().includes(searchLower) ||
           t.paymentMethod?.name?.toLowerCase().includes(searchLower) ||
-          t.amount.toString().includes(searchLower)
+          t.amount.toString().includes(searchLower),
       );
     }
 
@@ -148,7 +148,7 @@ export default function TransactionsPage() {
       if (selectedTransaction) {
         await transactionService.updateTransaction(
           selectedTransaction.id,
-          transactionData
+          transactionData,
         );
       } else {
         await transactionService.createTransaction(transactionData);
@@ -161,7 +161,7 @@ export default function TransactionsPage() {
       setError(
         err.response?.data?.error ||
           err.response?.data?.message ||
-          "Error al guardar transacción"
+          "Error al guardar transacción",
       );
     }
   };
@@ -197,7 +197,7 @@ export default function TransactionsPage() {
 
   const paginatedTransactions = filteredTransactions.slice(
     page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
+    page * rowsPerPage + rowsPerPage,
   );
 
   // Calcular totales del mes actual separados por moneda
@@ -518,7 +518,7 @@ export default function TransactionsPage() {
                 <TableRow key={transaction.id} hover>
                   <TableCell>
                     {new Date(
-                      transaction.date + "T00:00:00"
+                      transaction.date + "T00:00:00",
                     ).toLocaleDateString("es-ES")}
                   </TableCell>
                   <TableCell>

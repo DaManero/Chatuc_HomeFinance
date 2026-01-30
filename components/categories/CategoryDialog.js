@@ -24,11 +24,13 @@ export default function CategoryDialog({
   onClose,
   onSave,
   category = null,
+  parentCategories = [],
 }) {
   const [formData, setFormData] = useState({
     name: "",
     type: "Egreso",
     isRecurring: false,
+    parentCategoryId: "",
   });
   const [errors, setErrors] = useState({});
 
@@ -39,6 +41,7 @@ export default function CategoryDialog({
         name: category.name || "",
         type: category.type || "Egreso",
         isRecurring: category.isRecurring || false,
+        parentCategoryId: category.parentCategoryId || "",
       });
     } else {
       // Modo creación
@@ -46,6 +49,7 @@ export default function CategoryDialog({
         name: "",
         type: "Egreso",
         isRecurring: false,
+        parentCategoryId: "",
       });
     }
     setErrors({});
@@ -85,6 +89,7 @@ export default function CategoryDialog({
       name: formData.name.trim(),
       type: formData.type,
       isRecurring: formData.isRecurring,
+      parentCategoryId: formData.parentCategoryId || null,
     };
 
     onSave(dataToSend);
@@ -130,6 +135,27 @@ export default function CategoryDialog({
             <MenuItem value="Egreso">Egreso</MenuItem>
           </Select>
           {errors.type && <FormHelperText>{errors.type}</FormHelperText>}
+        </FormControl>
+
+        <FormControl fullWidth sx={{ mb: 2.5 }}>
+          <InputLabel>Categoría Padre (opcional)</InputLabel>
+          <Select
+            name="parentCategoryId"
+            value={formData.parentCategoryId}
+            onChange={handleChange}
+            label="Categoría Padre (opcional)"
+          >
+            <MenuItem value="">
+              <em>Ninguna (Categoría Principal)</em>
+            </MenuItem>
+            {parentCategories
+              .filter((cat) => !cat.parentCategoryId && cat.id !== category?.id)
+              .map((cat) => (
+                <MenuItem key={cat.id} value={cat.id}>
+                  {cat.name}
+                </MenuItem>
+              ))}
+          </Select>
         </FormControl>
 
         <FormControlLabel
