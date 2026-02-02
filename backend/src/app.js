@@ -20,7 +20,34 @@ import creditCardInstallmentRouter from "./routes/creditCardInstallment.routes.j
 export function createApp() {
   const app = express();
 
-  app.use(cors());
+  // Configuración de CORS mejorada
+  const allowedOrigins = [
+    "http://localhost:3001",
+    "http://localhost:3000",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:3000",
+    process.env.FRONTEND_URL,
+    process.env.RENDER_EXTERNAL_URL,
+  ].filter(Boolean);
+
+  app.use(
+    cors({
+      origin: function (origin, callback) {
+        // Permitir requests sin origin (como desde móviles o apps)
+        if (!origin) return callback(null, true);
+
+        if (allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          console.warn(`CORS bloqueado para origen: ${origin}`);
+          callback(null, true); // Permitir igual pero log para debugging
+        }
+      },
+      credentials: true,
+      methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization"],
+    }),
+  );
   app.use(express.json());
 
   app.use("/health", healthRouter);
