@@ -1,8 +1,27 @@
 import axios from "axios";
 
-// Configuración base de axios
-const apiUrl = "https://home-finance-backend.onrender.com";
-console.log("🔧 API URL configurada:", apiUrl); // Debug temporal
+// Detectar automáticamente el ambiente
+const getApiUrl = () => {
+  // Si estamos en el navegador
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+
+    // Si es producción en Render
+    if (hostname.includes("onrender.com")) {
+      return "https://home-finance-backend.onrender.com";
+    }
+  }
+
+  // Desarrollo local o fallback
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+};
+
+const apiUrl = getApiUrl();
+console.log("🔧 API URL configurada:", apiUrl);
+console.log(
+  "🌐 Hostname:",
+  typeof window !== "undefined" ? window.location.hostname : "server",
+);
 
 const api = axios.create({
   baseURL: apiUrl,
