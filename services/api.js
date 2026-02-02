@@ -1,8 +1,11 @@
 import axios from "axios";
 
 // Configuración base de axios
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+console.log("🔧 API URL configurada:", apiUrl); // Debug temporal
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000", // URL del backend
+  baseURL: apiUrl,
   headers: {
     "Content-Type": "application/json",
   },
@@ -22,7 +25,7 @@ api.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // Interceptor para manejar errores de respuesta
@@ -45,7 +48,7 @@ api.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;
