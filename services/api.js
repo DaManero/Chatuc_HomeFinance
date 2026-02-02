@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // Configuración base de axios
-const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const apiUrl = "https://home-finance-backend.onrender.com";
 console.log("🔧 API URL configurada:", apiUrl); // Debug temporal
 
 const api = axios.create({
