@@ -152,11 +152,26 @@ export default function CategoriesPage() {
 
       // Actualizar estado local en lugar de recargar toda la página
       setCategories((prevCategories) =>
-        prevCategories.map((cat) =>
-          cat.id === category.id
-            ? { ...cat, isRecurring: updatedData.isRecurring }
-            : cat,
-        ),
+        prevCategories.map((cat) => {
+          // Si es una categoría principal
+          if (cat.id === category.id) {
+            return { ...cat, isRecurring: updatedData.isRecurring };
+          }
+
+          // Si es una subcategoría, actualizar dentro del array de subcategorías
+          if (cat.subcategories && cat.subcategories.length > 0) {
+            return {
+              ...cat,
+              subcategories: cat.subcategories.map((subcat) =>
+                subcat.id === category.id
+                  ? { ...subcat, isRecurring: updatedData.isRecurring }
+                  : subcat,
+              ),
+            };
+          }
+
+          return cat;
+        }),
       );
 
       setError(null);
