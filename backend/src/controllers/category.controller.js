@@ -87,11 +87,14 @@ export async function updateCategory(req, res) {
     const { name, type, isRecurring, parentCategoryId } = req.body;
     const userId = req.user.userId;
 
+    console.log(`Intentando actualizar categoría: id=${id}, userId=${userId}`);
+
     const category = await models.Category.findOne({
-      where: { id, userId },
+      where: { id: parseInt(id), userId },
     });
 
     if (!category) {
+      console.log(`Categoría no encontrada: id=${id}, userId=${userId}`);
       return res.status(404).json({ error: "Categoría no encontrada" });
     }
 
@@ -142,7 +145,7 @@ export async function deleteCategory(req, res) {
     const userId = req.user.userId;
 
     const category = await models.Category.findOne({
-      where: { id },
+      where: { id: parseInt(id), userId },
     });
 
     if (!category) {

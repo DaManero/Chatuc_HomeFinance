@@ -123,14 +123,21 @@ export default function CategoriesPage() {
   const handleSaveCategory = async (categoryData) => {
     try {
       if (selectedCategory) {
+        console.log(
+          "Actualizando categoría:",
+          selectedCategory.id,
+          categoryData,
+        );
         await categoryService.updateCategory(selectedCategory.id, categoryData);
       } else {
+        console.log("Creando nueva categoría:", categoryData);
         await categoryService.createCategory(categoryData);
       }
       handleCloseCategoryDialog();
       loadCategories();
       setError(null);
     } catch (err) {
+      console.error("Error al guardar:", err);
       setError(err.response?.data?.error || "Error al guardar categoría");
     }
   };
