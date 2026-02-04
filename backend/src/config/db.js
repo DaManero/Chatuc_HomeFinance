@@ -1,6 +1,16 @@
 import { Sequelize } from "sequelize";
 import { env } from "./env.js";
 
+const dialectOptions =
+  process.env.NODE_ENV === "production"
+    ? {
+        ssl: {
+          require: true,
+          rejectUnauthorized: false,
+        },
+      }
+    : {};
+
 export const sequelize = new Sequelize(
   env.db.name,
   env.db.user,
@@ -10,12 +20,7 @@ export const sequelize = new Sequelize(
     port: env.db.port,
     dialect: "postgres",
     logging: false,
-    dialectOptions: {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false,
-      },
-    },
+    dialectOptions,
   },
 );
 

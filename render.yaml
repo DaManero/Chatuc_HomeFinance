@@ -31,7 +31,7 @@ services:
           name: home-finance-db
           property: host
       - key: DB_PORT
-        value: 3306
+        value: 5432
       - key: DB_USER
         fromDatabase:
           name: home-finance-db

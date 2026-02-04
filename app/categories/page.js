@@ -142,12 +142,23 @@ export default function CategoriesPage() {
     }
 
     try {
-      await categoryService.updateCategory(category.id, {
+      const updatedData = {
         name: category.name,
         type: category.type,
         isRecurring: !category.isRecurring,
-      });
-      loadCategories();
+      };
+
+      await categoryService.updateCategory(category.id, updatedData);
+
+      // Actualizar estado local en lugar de recargar toda la página
+      setCategories((prevCategories) =>
+        prevCategories.map((cat) =>
+          cat.id === category.id
+            ? { ...cat, isRecurring: updatedData.isRecurring }
+            : cat,
+        ),
+      );
+
       setError(null);
     } catch (err) {
       setError(err.response?.data?.error || "Error al actualizar categoría");
