@@ -94,27 +94,27 @@ export default function CreditCardsPage() {
     try {
       const [cardsRes, categoriesRes, paymentMethodsRes] = await Promise.all([
         creditCardService.getCreditCards(),
-        categoryService.getCategories(),
+        categoryService.getCategoriesFlat(),
         paymentMethodService.getPaymentMethods(),
       ]);
       setCreditCards(cardsRes.creditCards || []);
       setCategories(categoriesRes || []);
       setPaymentMethods(paymentMethodsRes.paymentMethods || []);
 
-      if (activeTab === 1) {
+      if (activeTab === 0) {
         const expensesRes = await creditCardExpenseService.getExpenses();
         setExpenses(expensesRes || []);
-      } else if (activeTab === 2) {
+      } else if (activeTab === 1) {
         const chargesRes = await recurringChargeService.getRecurringCharges();
         setRecurringCharges(chargesRes || []);
+      } else if (activeTab === 2) {
+        const installmentsRes =
+          await creditCardInstallmentService.getPendingInstallments();
+        setPendingInstallments(installmentsRes || []);
       } else if (activeTab === 3) {
         const paymentsRes = await paymentService.getPayments();
         setPayments(paymentsRes.payments || []);
       } else if (activeTab === 4) {
-        const installmentsRes =
-          await creditCardInstallmentService.getPendingInstallments();
-        setPendingInstallments(installmentsRes || []);
-      } else if (activeTab === 5) {
         const installmentsRes =
           await creditCardInstallmentService.getPendingInstallments();
         setPendingInstallments(installmentsRes || []);
@@ -128,26 +128,26 @@ export default function CreditCardsPage() {
   };
 
   useEffect(() => {
-    if (isAuthenticated && activeTab > 0) {
+    if (isAuthenticated) {
       loadTabData();
     }
   }, [activeTab, isAuthenticated]);
 
   const loadTabData = async () => {
     try {
-      if (activeTab === 1) {
+      if (activeTab === 0) {
         const res = await creditCardExpenseService.getExpenses();
         setExpenses(res || []);
-      } else if (activeTab === 2) {
+      } else if (activeTab === 1) {
         const res = await recurringChargeService.getRecurringCharges();
         setRecurringCharges(res || []);
+      } else if (activeTab === 2) {
+        const res = await creditCardInstallmentService.getPendingInstallments();
+        setPendingInstallments(res || []);
       } else if (activeTab === 3) {
         const res = await paymentService.getPayments();
         setPayments(res.payments || []);
       } else if (activeTab === 4) {
-        const res = await creditCardInstallmentService.getPendingInstallments();
-        setPendingInstallments(res || []);
-      } else if (activeTab === 5) {
         const res = await creditCardInstallmentService.getPendingInstallments();
         setPendingInstallments(res || []);
       }
@@ -170,7 +170,7 @@ export default function CreditCardsPage() {
       loadData();
     } catch (error) {
       toast.error(
-        error.response?.data?.message || "Error al guardar la tarjeta"
+        error.response?.data?.message || "Error al guardar la tarjeta",
       );
     }
   };
@@ -183,7 +183,7 @@ export default function CreditCardsPage() {
       loadData();
     } catch (error) {
       toast.error(
-        error.response?.data?.message || "Error al eliminar la tarjeta"
+        error.response?.data?.message || "Error al eliminar la tarjeta",
       );
     }
   };
@@ -194,7 +194,7 @@ export default function CreditCardsPage() {
       if (expenseDialog.data) {
         await creditCardExpenseService.updateExpense(
           expenseDialog.data.id,
-          data
+          data,
         );
         toast.success("Gasto actualizado");
       } else {
@@ -216,7 +216,7 @@ export default function CreditCardsPage() {
       loadTabData();
     } catch (error) {
       toast.error(
-        error.response?.data?.message || "Error al eliminar el gasto"
+        error.response?.data?.message || "Error al eliminar el gasto",
       );
     }
   };
@@ -227,7 +227,7 @@ export default function CreditCardsPage() {
       if (chargeDialog.data) {
         await recurringChargeService.updateRecurringCharge(
           chargeDialog.data.id,
-          data
+          data,
         );
         toast.success("Débito automático actualizado");
       } else {
@@ -238,7 +238,7 @@ export default function CreditCardsPage() {
       loadTabData();
     } catch (error) {
       toast.error(
-        error.response?.data?.message || "Error al guardar el débito"
+        error.response?.data?.message || "Error al guardar el débito",
       );
     }
   };
@@ -251,7 +251,7 @@ export default function CreditCardsPage() {
       loadTabData();
     } catch (error) {
       toast.error(
-        error.response?.data?.message || "Error al eliminar el débito"
+        error.response?.data?.message || "Error al eliminar el débito",
       );
     }
   };
@@ -265,7 +265,7 @@ export default function CreditCardsPage() {
       loadData(); // Recargar todo para actualizar las tarjetas y el historial
     } catch (error) {
       toast.error(
-        error.response?.data?.message || "Error al registrar el pago"
+        error.response?.data?.message || "Error al registrar el pago",
       );
     }
   };
@@ -294,7 +294,7 @@ export default function CreditCardsPage() {
       setPendingInstallments(res || []);
     } catch (error) {
       toast.error(
-        error.response?.data?.error || "Error al marcar cuota como pagada"
+        error.response?.data?.error || "Error al marcar cuota como pagada",
       );
     }
   };
@@ -474,7 +474,10 @@ export default function CreditCardsPage() {
                         <TableCell>{expense.description}</TableCell>
                         <TableCell>{expense.creditCard?.name || "-"}</TableCell>
                         <TableCell>
-                          {expense.currency} {expense.totalAmount?.toFixed(2)}
+                          {expense.currency}{" "}
+                          {Number.isFinite(Number(expense.totalAmount))
+                            ? Number(expense.totalAmount).toFixed(2)
+                            : "-"}
                         </TableCell>
                         <TableCell>{expense.installments}</TableCell>
                         <TableCell>
@@ -546,7 +549,7 @@ export default function CreditCardsPage() {
                           .filter((c) => c.isActive && c.currency === "ARS")
                           .reduce(
                             (sum, c) => sum + parseFloat(c.amount || 0),
-                            0
+                            0,
                           )
                           .toFixed(2)}
                       </Typography>
@@ -573,7 +576,7 @@ export default function CreditCardsPage() {
                           .filter((c) => c.isActive && c.currency === "USD")
                           .reduce(
                             (sum, c) => sum + parseFloat(c.amount || 0),
-                            0
+                            0,
                           )
                           .toFixed(2)}
                       </Typography>
@@ -615,7 +618,7 @@ export default function CreditCardsPage() {
                     recurringCharges
                       .slice(
                         chargePage * chargeRowsPerPage,
-                        chargePage * chargeRowsPerPage + chargeRowsPerPage
+                        chargePage * chargeRowsPerPage + chargeRowsPerPage,
                       )
                       .map((charge) => (
                         <TableRow key={charge.id}>
@@ -624,7 +627,10 @@ export default function CreditCardsPage() {
                             {charge.creditCard?.name || "-"}
                           </TableCell>
                           <TableCell>
-                            {charge.currency} {charge.amount?.toFixed(2)}
+                            {charge.currency}{" "}
+                            {Number.isFinite(Number(charge.amount))
+                              ? Number(charge.amount).toFixed(2)
+                              : "-"}
                           </TableCell>
                           <TableCell>{charge.chargeDay}</TableCell>
                           <TableCell>{charge.category?.name || "-"}</TableCell>
@@ -712,7 +718,10 @@ export default function CreditCardsPage() {
                         <TableCell>{payment.creditCard?.name || "-"}</TableCell>
                         <TableCell>{payment.creditCard?.bank || "-"}</TableCell>
                         <TableCell>
-                          {payment.currency} {payment.amount?.toFixed(2)}
+                          {payment.currency}{" "}
+                          {Number.isFinite(Number(payment.amount))
+                            ? Number(payment.amount).toFixed(2)
+                            : "-"}
                         </TableCell>
                         <TableCell>{payment.notes || "-"}</TableCell>
                         <TableCell>

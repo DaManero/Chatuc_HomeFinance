@@ -12,6 +12,7 @@ import {
   MenuItem,
   FormControlLabel,
   Switch,
+  ListSubheader,
 } from "@mui/material";
 import { CloseOutlined } from "@mui/icons-material";
 
@@ -114,6 +115,18 @@ export default function RecurringChargeDialog({
     onSave(dataToSend);
   };
 
+  const mainCategories = categories.filter(
+    (cat) => cat.type === "Egreso" && !cat.parentCategoryId,
+  );
+
+  const subcategories = categories.filter(
+    (cat) => cat.type === "Egreso" && cat.parentCategoryId,
+  );
+
+  const orphanSubcategories = subcategories.filter(
+    (sub) => !mainCategories.some((main) => main.id === sub.parentCategoryId),
+  );
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle
@@ -215,13 +228,49 @@ export default function RecurringChargeDialog({
           <MenuItem value="">
             <em>Sin categoría</em>
           </MenuItem>
-          {categories
-            .filter((cat) => cat.type === "Egreso")
-            .map((cat) => (
-              <MenuItem key={cat.id} value={cat.id}>
-                {cat.name}
-              </MenuItem>
-            ))}
+          {mainCategories.length === 0 && subcategories.length === 0 ? (
+            <MenuItem disabled>No hay categorías de egreso</MenuItem>
+          ) : (
+            [
+              ...mainCategories.flatMap((mainCat) => {
+                const children = subcategories.filter(
+                  (sub) => sub.parentCategoryId === mainCat.id,
+                );
+
+                return [
+                  <ListSubheader key={`header-${mainCat.id}`}>
+                    {mainCat.name}
+                  </ListSubheader>,
+                  <MenuItem
+                    key={`main-${mainCat.id}`}
+                    value={mainCat.id}
+                    sx={{ pl: 2, fontWeight: 500 }}
+                  >
+                    {mainCat.name}
+                  </MenuItem>,
+                  ...(children.length > 0
+                    ? children.map((sub) => (
+                        <MenuItem key={sub.id} value={sub.id} sx={{ pl: 3 }}>
+                          ↳ {sub.name}
+                        </MenuItem>
+                      ))
+                    : []),
+                ];
+              }),
+              ...(orphanSubcategories.length > 0
+                ? [
+                    <ListSubheader key="header-orphan">
+                      Subcategorías sin padre
+                    </ListSubheader>,
+                    ...orphanSubcategories.map((sub) => (
+                      <MenuItem key={`orphan-${sub.id}`} value={sub.id}>
+                        {sub.name}
+                      </MenuItem>
+                    )),
+                  ]
+                : []),
+            ]
+          )}
         </TextField>
 
         <FormControlLabel

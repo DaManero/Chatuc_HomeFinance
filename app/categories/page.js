@@ -458,17 +458,29 @@ export default function CategoriesPage() {
                               ) : null}
                             </TableCell>
                             <TableCell>
-                              <Typography variant="body2" fontWeight={500}>
-                                {category.name}
+                              <Box
+                                component="span"
+                                sx={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                }}
+                              >
+                                <Box
+                                  component="span"
+                                  sx={{ fontSize: "0.875rem", fontWeight: 500 }}
+                                >
+                                  {category.name}
+                                </Box>
                                 {category.subcategories &&
                                   category.subcategories.length > 0 && (
                                     <Chip
                                       label={category.subcategories.length}
+                                      component="span"
                                       size="small"
                                       sx={{ ml: 1, height: 20 }}
                                     />
                                   )}
-                              </Typography>
+                              </Box>
                             </TableCell>
                             <TableCell align="center">
                               <Chip

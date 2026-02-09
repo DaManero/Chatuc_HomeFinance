@@ -5,7 +5,7 @@ import { Op } from "sequelize";
 function calculateInstallmentDueDate(
   purchaseDate,
   creditCard,
-  installmentNumber
+  installmentNumber,
 ) {
   const purchase = new Date(purchaseDate + "T00:00:00");
   const dueDay = creditCard.dueDay;
@@ -107,21 +107,9 @@ export async function createCreditCardExpense(req, res) {
       userId,
     });
 
-    // Crear la transacción por el monto total
-    const transaction = await models.Transaction.create({
-      amount: totalAmount,
-      date: expense.purchaseDate,
-      description: `${description} - ${creditCard.name}`,
-      type: "Egreso",
-      currency: currency || "ARS",
-      categoryId,
-      paymentMethodId: paymentMethod.id,
-      userId,
-    });
-
     // Calcular monto por cuota
     const installmentAmount = (parseFloat(totalAmount) / installments).toFixed(
-      2
+      2,
     );
 
     // Crear las cuotas
@@ -130,7 +118,7 @@ export async function createCreditCardExpense(req, res) {
       const dueDate = calculateInstallmentDueDate(
         expense.purchaseDate,
         creditCard,
-        i
+        i,
       );
 
       installmentsData.push({

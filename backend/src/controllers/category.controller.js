@@ -23,6 +23,11 @@ export async function createCategory(req, res) {
       if (!parentCategory) {
         return res.status(400).json({ error: "Categoría padre no encontrada" });
       }
+      if (parentCategory.type !== type) {
+        return res.status(400).json({
+          error: "La categoría padre debe ser del mismo tipo",
+        });
+      }
     }
 
     const category = await models.Category.create({
@@ -118,6 +123,12 @@ export async function updateCategory(req, res) {
       });
       if (!parentCategory) {
         return res.status(400).json({ error: "Categoría padre no encontrada" });
+      }
+      const targetType = type || category.type;
+      if (parentCategory.type !== targetType) {
+        return res.status(400).json({
+          error: "La categoría padre debe ser del mismo tipo",
+        });
       }
     }
 

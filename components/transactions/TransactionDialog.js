@@ -116,14 +116,16 @@ export default function TransactionDialog({
     onSave(dataToSend);
   };
 
-  // Filtrar categorías según el tipo seleccionado
-  const filteredCategories = categories.filter(
+  const mainCategories = categories.filter(
     (cat) => cat.type === formData.type && !cat.parentCategoryId,
   );
 
-  // Obtener todas las subcategorías para el selector
-  const allSubcategories = categories.filter(
+  const subcategories = categories.filter(
     (cat) => cat.type === formData.type && cat.parentCategoryId,
+  );
+
+  const orphanSubcategories = subcategories.filter(
+    (sub) => !mainCategories.some((main) => main.id === sub.parentCategoryId),
   );
 
   return (
@@ -215,48 +217,70 @@ export default function TransactionDialog({
             onChange={handleChange}
             label="Categoría"
           >
-            {filteredCategories.length === 0 &&
-            allSubcategories.length === 0 ? (
+            {mainCategories.length === 0 && subcategories.length === 0 ? (
               <MenuItem disabled>
                 No hay categorías de tipo {formData.type}
               </MenuItem>
             ) : (
-              filteredCategories.map((mainCat) => {
-                const subcats = allSubcategories.filter(
-                  (sub) => sub.parentCategoryId === mainCat.id,
-                );
+              [
+                ...mainCategories.flatMap((mainCat) => {
+                  const subcats = subcategories.filter(
+                    (sub) => sub.parentCategoryId === mainCat.id,
+                  );
 
-                return [
-                  <ListSubheader key={`header-${mainCat.id}`}>
-                    <Typography
-                      variant="body2"
-                      fontWeight={600}
-                      color="primary"
+                  return [
+                    <ListSubheader key={`header-${mainCat.id}`}>
+                      <Typography
+                        variant="body2"
+                        fontWeight={600}
+                        color="primary"
+                      >
+                        {mainCat.name}
+                      </Typography>
+                    </ListSubheader>,
+                    <MenuItem
+                      key={`main-${mainCat.id}`}
+                      value={mainCat.id}
+                      sx={{ pl: 4, fontWeight: 500 }}
                     >
                       {mainCat.name}
-                    </Typography>
-                  </ListSubheader>,
-                  ...(subcats.length > 0
-                    ? subcats.map((subcat) => (
+                    </MenuItem>,
+                    ...(subcats.length > 0
+                      ? subcats.map((subcat) => (
+                          <MenuItem
+                            key={subcat.id}
+                            value={subcat.id}
+                            sx={{ pl: 4 }}
+                          >
+                            {subcat.name}
+                          </MenuItem>
+                        ))
+                      : []),
+                  ];
+                }),
+                ...(orphanSubcategories.length > 0
+                  ? [
+                      <ListSubheader key="header-orphan">
+                        <Typography
+                          variant="body2"
+                          fontWeight={600}
+                          color="text.secondary"
+                        >
+                          Subcategorías sin padre
+                        </Typography>
+                      </ListSubheader>,
+                      ...orphanSubcategories.map((subcat) => (
                         <MenuItem
-                          key={subcat.id}
+                          key={`orphan-${subcat.id}`}
                           value={subcat.id}
                           sx={{ pl: 4 }}
                         >
                           {subcat.name}
                         </MenuItem>
-                      ))
-                    : [
-                        <MenuItem
-                          key={mainCat.id}
-                          value={mainCat.id}
-                          sx={{ pl: 4, fontStyle: "italic" }}
-                        >
-                          (Sin subcategorías)
-                        </MenuItem>,
-                      ]),
-                ];
-              })
+                      )),
+                    ]
+                  : []),
+              ]
             )}
           </Select>
           {errors.categoryId && (

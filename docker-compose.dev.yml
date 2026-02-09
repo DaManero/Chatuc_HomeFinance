@@ -70,11 +70,14 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: home_finance_frontend
+    command: npm run dev
     ports:
       - "3001:3001"
     environment:
       NODE_ENV: development
       NEXT_PUBLIC_API_URL: http://localhost:3000
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
     volumes:
       - .:/app
       - /app/node_modules
