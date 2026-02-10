@@ -34,6 +34,7 @@ export default function GastosFijosPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("Todos");
+  const [currencyView, setCurrencyView] = useState("ALL");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
@@ -74,7 +75,7 @@ export default function GastosFijosPage() {
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter((p) =>
-        p.categoryName.toLowerCase().includes(searchLower)
+        p.categoryName.toLowerCase().includes(searchLower),
       );
     }
 
@@ -91,6 +92,12 @@ export default function GastosFijosPage() {
   const handleSearchChange = (event) => {
     setSearchTerm(event.target.value);
     setPage(0);
+  };
+
+  const handleCurrencyViewChange = (event, newView) => {
+    if (newView !== null) {
+      setCurrencyView(newView);
+    }
   };
 
   const handleChangePage = (event, newPage) => {
@@ -111,16 +118,92 @@ export default function GastosFijosPage() {
     });
   };
 
-  const formatCurrency = (amount) => {
-    return `$ ${parseFloat(amount).toLocaleString("es-AR", {
+  const formatCurrency = (amount, currency = "ARS") => {
+    return new Intl.NumberFormat("es-AR", {
+      style: "currency",
+      currency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    })}`;
+    }).format(parseFloat(amount));
+  };
+
+  const normalizeAmount = (value) => {
+    const amount = parseFloat(value);
+    return Number.isFinite(amount) ? amount : 0;
+  };
+
+  const renderCurrencyAmounts = (amountARS, amountUSD, view, fallback = 0) => {
+    const normalizedARS = normalizeAmount(amountARS);
+    const normalizedUSD = normalizeAmount(amountUSD);
+    const fallbackAmount = normalizeAmount(fallback);
+    const hasARS = normalizedARS > 0;
+    const hasUSD = normalizedUSD > 0;
+
+    if (!hasARS && !hasUSD) {
+      return fallbackAmount > 0 ? formatCurrency(fallbackAmount, "ARS") : "-";
+    }
+
+    if (view === "ARS") {
+      return hasARS ? formatCurrency(normalizedARS, "ARS") : "-";
+    }
+
+    if (view === "USD") {
+      return hasUSD ? formatCurrency(normalizedUSD, "USD") : "-";
+    }
+
+    return (
+      <span style={{ display: "inline-flex", flexDirection: "column" }}>
+        {hasARS && (
+          <span style={{ fontSize: "0.875rem" }}>
+            {formatCurrency(normalizedARS, "ARS")}
+          </span>
+        )}
+        {hasUSD && (
+          <span style={{ fontSize: "0.875rem", color: "#6b7280" }}>
+            {formatCurrency(normalizedUSD, "USD")}
+          </span>
+        )}
+      </span>
+    );
+  };
+
+  const renderSummaryAmounts = (amountARS, amountUSD, color) => {
+    const normalizedARS = normalizeAmount(amountARS);
+    const normalizedUSD = normalizeAmount(amountUSD);
+
+    if (currencyView === "USD") {
+      return (
+        <Typography variant="h5" color={color} fontWeight={600}>
+          {formatCurrency(normalizedUSD, "USD")}
+        </Typography>
+      );
+    }
+
+    if (currencyView === "ARS") {
+      return (
+        <Typography variant="h5" color={color} fontWeight={600}>
+          {formatCurrency(normalizedARS, "ARS")}
+        </Typography>
+      );
+    }
+
+    return (
+      <>
+        <Typography variant="h5" color={color} fontWeight={600}>
+          {formatCurrency(normalizedARS, "ARS")}
+        </Typography>
+        {normalizedUSD !== 0 && (
+          <Typography variant="subtitle1" color="text.secondary">
+            {formatCurrency(normalizedUSD, "USD")}
+          </Typography>
+        )}
+      </>
+    );
   };
 
   const paginatedProjections = filteredProjections.slice(
     page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
+    page * rowsPerPage + rowsPerPage,
   );
 
   if (loading) {
@@ -154,36 +237,40 @@ export default function GastosFijosPage() {
         {data && (
           <>
             {/* Cards de resumen */}
-            <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
+            <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
               <Paper sx={{ flex: 1, p: 2 }}>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   Ingresos Fijos
                 </Typography>
-                <Typography variant="h5" color="success.main" fontWeight={600}>
-                  {formatCurrency(data.summary.totalIngresos)}
-                </Typography>
+                {renderSummaryAmounts(
+                  data.summary.totalIngresosARS,
+                  data.summary.totalIngresosUSD,
+                  "success.main",
+                )}
               </Paper>
               <Paper sx={{ flex: 1, p: 2 }}>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   Egresos Fijos
                 </Typography>
-                <Typography variant="h5" color="error.main" fontWeight={600}>
-                  {formatCurrency(data.summary.totalEgresos)}
-                </Typography>
+                {renderSummaryAmounts(
+                  data.summary.totalEgresosARS,
+                  data.summary.totalEgresosUSD,
+                  "error.main",
+                )}
               </Paper>
               <Paper sx={{ flex: 1, p: 2 }}>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   Balance Proyectado
                 </Typography>
-                <Typography
-                  variant="h5"
-                  color={
-                    data.summary.balance >= 0 ? "success.main" : "error.main"
-                  }
-                  fontWeight={600}
-                >
-                  {formatCurrency(data.summary.balance)}
-                </Typography>
+                {renderSummaryAmounts(
+                  data.summary.balanceARS,
+                  data.summary.balanceUSD,
+                  (currencyView === "USD"
+                    ? data.summary.balanceUSD || 0
+                    : data.summary.balanceARS || 0) >= 0
+                    ? "success.main"
+                    : "error.main",
+                )}
               </Paper>
             </Box>
 
@@ -197,6 +284,23 @@ export default function GastosFijosPage() {
                 flexWrap: "wrap",
               }}
             >
+              <ToggleButtonGroup
+                value={currencyView}
+                exclusive
+                onChange={handleCurrencyViewChange}
+                aria-label="vista de moneda"
+                size="small"
+              >
+                <ToggleButton value="ALL" aria-label="ambas">
+                  ARS + USD
+                </ToggleButton>
+                <ToggleButton value="ARS" aria-label="ars">
+                  ARS
+                </ToggleButton>
+                <ToggleButton value="USD" aria-label="usd">
+                  USD
+                </ToggleButton>
+              </ToggleButtonGroup>
               <TextField
                 placeholder="Buscar por categoría..."
                 value={searchTerm}
@@ -292,19 +396,30 @@ export default function GastosFijosPage() {
                           />
                         </TableCell>
                         <TableCell>
-                          {formatCurrency(projection.lastAmount)}
+                          {renderCurrencyAmounts(
+                            projection.lastAmountARS || 0,
+                            projection.lastAmountUSD || 0,
+                            currencyView,
+                            projection.lastAmount || 0,
+                          )}
                         </TableCell>
                         <TableCell>
                           {projection.lastDate
                             ? new Date(
-                                projection.lastDate + "T00:00:00"
+                                projection.lastDate + "T00:00:00",
                               ).toLocaleDateString("es-ES")
                             : "-"}
                         </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" fontWeight={600}>
-                            {formatCurrency(projection.projectedAmount)}
-                          </Typography>
+                        <TableCell
+                          component="span"
+                          sx={{ fontWeight: 600, display: "inline-flex" }}
+                        >
+                          {renderCurrencyAmounts(
+                            projection.projectedAmountARS || 0,
+                            projection.projectedAmountUSD || 0,
+                            currencyView,
+                            projection.projectedAmount || 0,
+                          )}
                         </TableCell>
                       </TableRow>
                     ))
@@ -329,8 +444,8 @@ export default function GastosFijosPage() {
             {filteredProjections.length > 0 && (
               <Box sx={{ mt: 2 }}>
                 <Typography variant="caption" color="text.secondary">
-                  * La proyección se basa en el monto de la última transacción
-                  registrada para cada categoría recurrente
+                  * La proyección usa la suma del mes actual o, si no hubo
+                  movimientos, el último monto registrado
                 </Typography>
               </Box>
             )}
