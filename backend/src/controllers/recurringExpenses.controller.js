@@ -4,9 +4,16 @@ import { Op } from "sequelize";
 export async function getRecurringProjection(req, res) {
   try {
     const userId = req.user.userId;
-    // Obtener todas las categorías recurrentes
+    // Obtener todas las categorías recurrentes (incluir info del padre)
     const recurringCategories = await models.Category.findAll({
       where: { isRecurring: true, userId },
+      include: [
+        {
+          model: models.Category,
+          as: "parentCategory",
+          attributes: ["id", "name", "type"],
+        },
+      ],
       order: [["name", "ASC"]],
     });
 
@@ -16,7 +23,7 @@ export async function getRecurringProjection(req, res) {
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
     // Para cada categoría, buscar todas las transacciones del mes actual
-    const projections = await Promise.all(
+    const rawProjections = await Promise.all(
       recurringCategories.map(async (category) => {
         // Obtener IDs de subcategorías para incluirlas en la búsqueda
         const subcategories = await models.Category.findAll({
@@ -76,7 +83,21 @@ export async function getRecurringProjection(req, res) {
 
         const totalAmount = totals.totalARS + totals.totalUSD;
 
+        // Determinar el ID y nombre a usar (padre si es subcategoría)
+        const groupId = category.parentCategoryId
+          ? category.parentCategory.id
+          : category.id;
+        const groupName = category.parentCategoryId
+          ? category.parentCategory.name
+          : category.name;
+        const groupType = category.parentCategoryId
+          ? category.parentCategory.type
+          : category.type;
+
         return {
+          groupId,
+          groupName,
+          groupType,
           categoryId: category.id,
           categoryName: category.name,
           type: category.type,
@@ -91,6 +112,46 @@ export async function getRecurringProjection(req, res) {
         };
       }),
     );
+
+    // Agrupar subcategorías bajo su categoría padre
+    const groupedMap = new Map();
+    rawProjections.forEach((proj) => {
+      const key = proj.groupId;
+      if (groupedMap.has(key)) {
+        const existing = groupedMap.get(key);
+        existing.lastAmount += proj.lastAmount;
+        existing.lastAmountARS += proj.lastAmountARS;
+        existing.lastAmountUSD += proj.lastAmountUSD;
+        existing.projectedAmount += proj.projectedAmount;
+        existing.projectedAmountARS += proj.projectedAmountARS;
+        existing.projectedAmountUSD += proj.projectedAmountUSD;
+        existing.transactionCount += proj.transactionCount;
+        // Mantener la fecha más reciente
+        if (
+          proj.lastDate &&
+          (!existing.lastDate ||
+            new Date(proj.lastDate) > new Date(existing.lastDate))
+        ) {
+          existing.lastDate = proj.lastDate;
+        }
+      } else {
+        groupedMap.set(key, {
+          categoryId: proj.groupId,
+          categoryName: proj.groupName,
+          type: proj.groupType,
+          lastAmount: proj.lastAmount,
+          lastAmountARS: proj.lastAmountARS,
+          lastAmountUSD: proj.lastAmountUSD,
+          lastDate: proj.lastDate,
+          projectedAmount: proj.projectedAmount,
+          projectedAmountARS: proj.projectedAmountARS,
+          projectedAmountUSD: proj.projectedAmountUSD,
+          transactionCount: proj.transactionCount,
+        });
+      }
+    });
+
+    const projections = Array.from(groupedMap.values());
 
     const projectionsByCategory = new Map(
       projections.map((projection) => [projection.categoryId, projection]),
