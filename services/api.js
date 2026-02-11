@@ -18,7 +18,7 @@ const getApiUrl = () => {
 
     // Producción en Railway
     if (hostname.includes("railway.app")) {
-      return "https://home-finance-backend.up.railway.app";
+      return "https://home-finance-backend-production.up.railway.app";
     }
   }
 
