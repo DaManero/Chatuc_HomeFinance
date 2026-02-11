@@ -4,6 +4,7 @@ import { Op } from "sequelize";
 export async function getRecurringProjection(req, res) {
   try {
     const userId = req.user.userId;
+
     // Obtener todas las categorías recurrentes (incluir info del padre)
     const recurringCategories = await models.Category.findAll({
       where: { isRecurring: true, userId },
@@ -25,8 +26,6 @@ export async function getRecurringProjection(req, res) {
     // Para cada categoría, buscar todas las transacciones del mes actual
     const rawProjections = await Promise.all(
       recurringCategories.map(async (category) => {
-        console.log(`[Projection] Categoría: "${category.name}" (id=${category.id}), parentCategoryId=${category.parentCategoryId}, parentCategory=${category.parentCategory ? category.parentCategory.name : 'null'}`);
-        
         // Obtener IDs de subcategorías para incluirlas en la búsqueda
         const subcategories = await models.Category.findAll({
           where: { parentCategoryId: category.id, userId },
@@ -118,7 +117,6 @@ export async function getRecurringProjection(req, res) {
     // Agrupar subcategorías bajo su categoría padre
     const groupedMap = new Map();
     rawProjections.forEach((proj) => {
-      console.log(`[Projection] Agrupando: "${proj.categoryName}" -> groupId=${proj.groupId}, groupName="${proj.groupName}", amount=${proj.lastAmount}`);
       const key = proj.groupId;
       if (groupedMap.has(key)) {
         const existing = groupedMap.get(key);
@@ -155,7 +153,6 @@ export async function getRecurringProjection(req, res) {
     });
 
     const projections = Array.from(groupedMap.values());
-    console.log(`[Projection] Resultado agrupado:`, projections.map(p => `${p.categoryName}: ARS=${p.projectedAmountARS}, USD=${p.projectedAmountUSD}`));
 
     const projectionsByCategory = new Map(
       projections.map((projection) => [projection.categoryId, projection]),
