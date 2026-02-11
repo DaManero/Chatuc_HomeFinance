@@ -2,18 +2,28 @@ import axios from "axios";
 
 // Detectar automáticamente el ambiente
 const getApiUrl = () => {
-  // Si estamos en el navegador
+  // La variable de entorno tiene prioridad (funciona para cualquier hosting)
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+
+  // Fallbacks por hostname (browser)
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
 
-    // Si es producción en Render
+    // Producción en Render
     if (hostname.includes("onrender.com")) {
       return "https://home-finance-backend.onrender.com";
     }
+
+    // Producción en Railway
+    if (hostname.includes("railway.app")) {
+      return "https://home-finance-backend.up.railway.app";
+    }
   }
 
-  // Desarrollo local o fallback
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+  // Desarrollo local
+  return "http://localhost:3000";
 };
 
 const apiUrl = getApiUrl();
