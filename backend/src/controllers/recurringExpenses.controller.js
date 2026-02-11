@@ -18,10 +18,20 @@ export async function getRecurringProjection(req, res) {
     // Para cada categoría, buscar todas las transacciones del mes actual
     const projections = await Promise.all(
       recurringCategories.map(async (category) => {
-        // Buscar todas las transacciones del mes actual para esta categoría
+        // Obtener IDs de subcategorías para incluirlas en la búsqueda
+        const subcategories = await models.Category.findAll({
+          where: { parentCategoryId: category.id, userId },
+          attributes: ["id"],
+        });
+        const categoryIds = [
+          category.id,
+          ...subcategories.map((sc) => sc.id),
+        ];
+
+        // Buscar todas las transacciones del mes actual para esta categoría y sus subcategorías
         const currentMonthTransactions = await models.Transaction.findAll({
           where: {
-            categoryId: category.id,
+            categoryId: { [Op.in]: categoryIds },
             userId,
             date: {
               [Op.between]: [
@@ -49,9 +59,9 @@ export async function getRecurringProjection(req, res) {
           { totalARS: 0, totalUSD: 0 },
         );
 
-        // Obtener la última transacción para mostrar la fecha
+        // Obtener la última transacción para mostrar la fecha (incluye subcategorías)
         const lastTransaction = await models.Transaction.findOne({
-          where: { categoryId: category.id, userId },
+          where: { categoryId: { [Op.in]: categoryIds }, userId },
           order: [["date", "DESC"]],
         });
 
