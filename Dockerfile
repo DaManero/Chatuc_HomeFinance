@@ -29,12 +29,12 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/package*.json ./
 
-# Exponer puerto
-EXPOSE 3001
+# Exponer puerto (Railway usa PORT env var)
+EXPOSE ${PORT:-3001}
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3001', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+  CMD node -e "const port = process.env.PORT || 3001; require('http').get('http://localhost:' + port, (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
 
 # Usar dumb-init
 ENTRYPOINT ["dumb-init", "--"]
