@@ -23,10 +23,7 @@ export async function getRecurringProjection(req, res) {
           where: { parentCategoryId: category.id, userId },
           attributes: ["id"],
         });
-        const categoryIds = [
-          category.id,
-          ...subcategories.map((sc) => sc.id),
-        ];
+        const categoryIds = [category.id, ...subcategories.map((sc) => sc.id)];
 
         // Buscar todas las transacciones del mes actual para esta categoría y sus subcategorías
         const currentMonthTransactions = await models.Transaction.findAll({
