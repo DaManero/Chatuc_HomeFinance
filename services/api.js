@@ -20,6 +20,11 @@ const getApiUrl = () => {
     if (hostname.includes("railway.app")) {
       return "https://home-finance-backend-production.up.railway.app";
     }
+
+    // Dominio custom (Cloudflare)
+    if (hostname.includes("dyl360.com.ar")) {
+      return "https://api-finanzas.dyl360.com.ar";
+    }
   }
 
   // Desarrollo local
