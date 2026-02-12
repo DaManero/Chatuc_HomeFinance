@@ -12,8 +12,15 @@ function getTodayLocalDate() {
 
 export async function createTransaction(req, res) {
   try {
-    const { amount, date, description, type, categoryId, paymentMethodId } =
-      req.body;
+    const {
+      amount,
+      date,
+      description,
+      type,
+      categoryId,
+      paymentMethodId,
+      currency,
+    } = req.body;
     const userId = req.user.userId;
 
     if (!amount || !type || !categoryId) {
@@ -62,6 +69,7 @@ export async function createTransaction(req, res) {
       type,
       categoryId,
       paymentMethodId: paymentMethodId || null,
+      currency: currency || "ARS",
       userId,
     });
 
@@ -125,8 +133,15 @@ export async function getTransactions(req, res) {
 export async function updateTransaction(req, res) {
   try {
     const { id } = req.params;
-    const { amount, date, description, type, categoryId, paymentMethodId } =
-      req.body;
+    const {
+      amount,
+      date,
+      description,
+      type,
+      categoryId,
+      paymentMethodId,
+      currency,
+    } = req.body;
     const userId = req.user.userId;
 
     const transaction = await models.Transaction.findOne({
@@ -180,6 +195,7 @@ export async function updateTransaction(req, res) {
     if (categoryId) transaction.categoryId = categoryId;
     if (paymentMethodId !== undefined)
       transaction.paymentMethodId = paymentMethodId;
+    if (currency) transaction.currency = currency;
 
     await transaction.save();
 

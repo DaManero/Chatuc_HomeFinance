@@ -231,6 +231,130 @@ export async function getRecurringProjection(req, res) {
       }
     });
 
+    // --- Incluir gastos de tarjeta de crédito de 1 cuota en categorías recurrentes ---
+    // Recopilar todos los IDs de categorías recurrentes (padres + subcategorías)
+    const allRecurringCategoryIds = recurringCategories.map((c) => c.id);
+    const allSubcategories = await models.Category.findAll({
+      where: {
+        parentCategoryId: { [Op.in]: allRecurringCategoryIds },
+        userId,
+      },
+      attributes: ["id", "parentCategoryId"],
+    });
+    const allRecurringAndSubIds = [
+      ...allRecurringCategoryIds,
+      ...allSubcategories.map((sc) => sc.id),
+    ];
+
+    // Buscar gastos de TC de 1 cuota del mes actual con categorías recurrentes
+    const singleInstallmentExpenses = await models.CreditCardExpense.findAll({
+      where: {
+        userId,
+        installments: 1,
+        categoryId: { [Op.in]: allRecurringAndSubIds },
+      },
+      include: [
+        {
+          model: models.CreditCardInstallment,
+          as: "installmentsList",
+          where: {
+            dueDate: {
+              [Op.between]: [
+                firstDay.toISOString().split("T")[0],
+                lastDay.toISOString().split("T")[0],
+              ],
+            },
+          },
+          required: true,
+        },
+        {
+          model: models.Category,
+          as: "category",
+          attributes: ["id", "name", "type", "parentCategoryId"],
+          include: [
+            {
+              model: models.Category,
+              as: "parentCategory",
+              attributes: ["id", "name", "type"],
+            },
+          ],
+        },
+      ],
+    });
+
+    // Agrupar por categoría padre (igual que el resto)
+    const singleInstExpByCategory = new Map();
+    singleInstallmentExpenses.forEach((expense) => {
+      if (!expense.category) return;
+
+      const cat = expense.category;
+      // Usar la categoría padre si es subcategoría
+      const categoryId = cat.parentCategoryId
+        ? cat.parentCategory?.id || cat.id
+        : cat.id;
+      const categoryName = cat.parentCategoryId
+        ? cat.parentCategory?.name || cat.name
+        : cat.name;
+      const categoryType = cat.parentCategoryId
+        ? cat.parentCategory?.type || cat.type
+        : cat.type;
+
+      const current = singleInstExpByCategory.get(categoryId) || {
+        categoryId,
+        categoryName,
+        type: categoryType,
+        totalARS: 0,
+        totalUSD: 0,
+      };
+
+      const expAmount = parseFloat(expense.totalAmount);
+      const expCurrency = expense.currency || "ARS";
+
+      if (expCurrency === "USD") {
+        current.totalUSD += expAmount;
+      } else {
+        current.totalARS += expAmount;
+      }
+
+      singleInstExpByCategory.set(categoryId, current);
+    });
+
+    // Actualizar projectionsByCategory con la referencia actualizada
+    const updatedProjectionsByCategory = new Map(
+      projections.map((p) => [p.categoryId, p]),
+    );
+
+    singleInstExpByCategory.forEach((expTotal) => {
+      const existingProjection = updatedProjectionsByCategory.get(
+        expTotal.categoryId,
+      );
+
+      if (existingProjection) {
+        existingProjection.lastAmount += expTotal.totalARS + expTotal.totalUSD;
+        existingProjection.lastAmountARS += expTotal.totalARS;
+        existingProjection.lastAmountUSD += expTotal.totalUSD;
+        existingProjection.projectedAmount +=
+          expTotal.totalARS + expTotal.totalUSD;
+        existingProjection.projectedAmountARS += expTotal.totalARS;
+        existingProjection.projectedAmountUSD += expTotal.totalUSD;
+      } else {
+        const projectedTotal = expTotal.totalARS + expTotal.totalUSD;
+        projections.push({
+          categoryId: expTotal.categoryId,
+          categoryName: expTotal.categoryName,
+          type: expTotal.type,
+          lastAmount: projectedTotal,
+          lastAmountARS: expTotal.totalARS,
+          lastAmountUSD: expTotal.totalUSD,
+          lastDate: null,
+          projectedAmount: projectedTotal,
+          projectedAmountARS: expTotal.totalARS,
+          projectedAmountUSD: expTotal.totalUSD,
+          transactionCount: 0,
+        });
+      }
+    });
+
     projections.sort((a, b) => a.categoryName.localeCompare(b.categoryName));
 
     // Calcular totales
