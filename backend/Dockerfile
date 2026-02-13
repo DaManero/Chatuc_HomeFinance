@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
@@ -8,7 +8,7 @@ RUN apk add --no-cache dumb-init
 # Copiar package.json y package-lock.json
 COPY package*.json ./
 
-# Instalar solo dependencias de producción
+# Instalar dependencias de producción
 RUN npm ci --omit=dev
 
 # Copiar código fuente
