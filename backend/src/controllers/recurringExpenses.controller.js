@@ -18,6 +18,9 @@ export async function getRecurringProjection(req, res) {
       order: [["name", "ASC"]],
     });
 
+    // IDs de todas las categorías recurrentes (para filtros posteriores)
+    const allRecurringCategoryIds = recurringCategories.map((c) => c.id);
+
     // Obtener el primer y último día del mes actual
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -26,14 +29,11 @@ export async function getRecurringProjection(req, res) {
     // Para cada categoría, buscar todas las transacciones del mes actual
     const rawProjections = await Promise.all(
       recurringCategories.map(async (category) => {
-        // Obtener IDs de subcategorías para incluirlas en la búsqueda
-        const subcategories = await models.Category.findAll({
-          where: { parentCategoryId: category.id, userId },
-          attributes: ["id"],
-        });
-        const categoryIds = [category.id, ...subcategories.map((sc) => sc.id)];
+        // Usar solo el ID de la categoría recurrente directa
+        // Las subcategorías recurrentes se procesan en su propia iteración del loop
+        const categoryIds = [category.id];
 
-        // Buscar todas las transacciones del mes actual para esta categoría y sus subcategorías
+        // Buscar todas las transacciones del mes actual para esta categoría recurrente
         const currentMonthTransactions = await models.Transaction.findAll({
           where: {
             categoryId: { [Op.in]: categoryIds },
@@ -162,7 +162,7 @@ export async function getRecurringProjection(req, res) {
       where: {
         userId,
         isActive: true,
-        categoryId: { [Op.not]: null },
+        categoryId: { [Op.in]: allRecurringCategoryIds },
       },
       include: [
         {
@@ -250,27 +250,13 @@ export async function getRecurringProjection(req, res) {
     });
 
     // --- Incluir gastos de tarjeta de crédito de 1 cuota en categorías recurrentes ---
-    // Recopilar todos los IDs de categorías recurrentes (padres + subcategorías)
-    const allRecurringCategoryIds = recurringCategories.map((c) => c.id);
-    const allSubcategories = await models.Category.findAll({
-      where: {
-        parentCategoryId: { [Op.in]: allRecurringCategoryIds },
-        userId,
-      },
-      attributes: ["id", "parentCategoryId"],
-    });
-    const allRecurringAndSubIds = [
-      ...allRecurringCategoryIds,
-      ...allSubcategories.map((sc) => sc.id),
-    ];
-
-    // Buscar gastos de TC de 1 cuota del mes actual con categorías recurrentes
+    // Buscar gastos de TC de 1 cuota del mes actual asignados a categorías recurrentes
     // Usamos purchaseDate (no dueDate de la cuota) porque para 1 cuota el dueDate cae en el mes siguiente
     const singleInstallmentExpenses = await models.CreditCardExpense.findAll({
       where: {
         userId,
         installments: 1,
-        categoryId: { [Op.in]: allRecurringAndSubIds },
+        categoryId: { [Op.in]: allRecurringCategoryIds },
         purchaseDate: {
           [Op.between]: [
             firstDay.toISOString().split("T")[0],
