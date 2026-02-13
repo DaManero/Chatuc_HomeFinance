@@ -247,26 +247,20 @@ export async function getRecurringProjection(req, res) {
     ];
 
     // Buscar gastos de TC de 1 cuota del mes actual con categorías recurrentes
+    // Usamos purchaseDate (no dueDate de la cuota) porque para 1 cuota el dueDate cae en el mes siguiente
     const singleInstallmentExpenses = await models.CreditCardExpense.findAll({
       where: {
         userId,
         installments: 1,
         categoryId: { [Op.in]: allRecurringAndSubIds },
+        purchaseDate: {
+          [Op.between]: [
+            firstDay.toISOString().split("T")[0],
+            lastDay.toISOString().split("T")[0],
+          ],
+        },
       },
       include: [
-        {
-          model: models.CreditCardInstallment,
-          as: "installmentsList",
-          where: {
-            dueDate: {
-              [Op.between]: [
-                firstDay.toISOString().split("T")[0],
-                lastDay.toISOString().split("T")[0],
-              ],
-            },
-          },
-          required: true,
-        },
         {
           model: models.Category,
           as: "category",
