@@ -27,10 +27,11 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-# Copiar standalone output y archivos estáticos
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+# Copiar archivos construidos y dependencias
+COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
 
 # Usuario no root para seguridad
 USER node
@@ -38,5 +39,5 @@ USER node
 # Exponer puerto
 EXPOSE 3000
 
-# Comando de inicio (standalone usa server.js)
-CMD ["dumb-init", "node", "server.js"]
+# Comando de inicio
+CMD ["dumb-init", "node_modules/.bin/next", "start"]
