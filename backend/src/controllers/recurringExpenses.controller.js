@@ -168,7 +168,14 @@ export async function getRecurringProjection(req, res) {
         {
           model: models.Category,
           as: "category",
-          attributes: ["id", "name", "type"],
+          attributes: ["id", "name", "type", "parentCategoryId"],
+          include: [
+            {
+              model: models.Category,
+              as: "parentCategory",
+              attributes: ["id", "name", "type"],
+            },
+          ],
         },
       ],
     });
@@ -178,11 +185,22 @@ export async function getRecurringProjection(req, res) {
     recurringCharges.forEach((charge) => {
       if (!charge.category) return;
 
-      const categoryId = charge.category.id;
+      const cat = charge.category;
+      // Resolver a la categoría padre si es subcategoría
+      const categoryId = cat.parentCategoryId
+        ? cat.parentCategory?.id || cat.id
+        : cat.id;
+      const categoryName = cat.parentCategoryId
+        ? cat.parentCategory?.name || cat.name
+        : cat.name;
+      const categoryType = cat.parentCategoryId
+        ? cat.parentCategory?.type || cat.type
+        : cat.type;
+
       const current = recurringChargesByCategory.get(categoryId) || {
         categoryId,
-        categoryName: charge.category.name,
-        type: charge.category.type,
+        categoryName,
+        type: categoryType,
         totalARS: 0,
         totalUSD: 0,
       };
