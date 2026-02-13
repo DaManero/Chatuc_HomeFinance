@@ -15,6 +15,8 @@ import { CreditCardExpense } from "./creditCardExpense.model.js";
 import { CreditCardInstallment } from "./creditCardInstallment.model.js";
 import { CreditCardRecurringCharge } from "./creditCardRecurringCharge.model.js";
 import { CreditCardPayment } from "./creditCardPayment.model.js";
+import { MortgageLoan } from "./mortgageLoan.model.js";
+import { MortgageInstallment } from "./mortgageInstallment.model.js";
 
 // Definir relaciones
 User.hasMany(Category, { foreignKey: "userId", as: "categories" });
@@ -194,6 +196,30 @@ User.hasMany(CreditCardPayment, {
 });
 CreditCardPayment.belongsTo(User, { foreignKey: "userId", as: "user" });
 
+// Relaciones de Mortgage (Hipotecario)
+User.hasMany(MortgageLoan, { foreignKey: "userId", as: "mortgageLoans" });
+MortgageLoan.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+MortgageLoan.hasMany(MortgageInstallment, {
+  foreignKey: "mortgageLoanId",
+  as: "installments",
+});
+MortgageInstallment.belongsTo(MortgageLoan, {
+  foreignKey: "mortgageLoanId",
+  as: "mortgageLoan",
+});
+
+User.hasMany(MortgageInstallment, {
+  foreignKey: "userId",
+  as: "mortgageInstallments",
+});
+MortgageInstallment.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+MortgageInstallment.belongsTo(Transaction, {
+  foreignKey: "transactionId",
+  as: "transaction",
+});
+
 export const models = {
   User,
   Category,
@@ -211,9 +237,14 @@ export const models = {
   CreditCardInstallment,
   CreditCardRecurringCharge,
   CreditCardPayment,
+  MortgageLoan,
+  MortgageInstallment,
 };
 
 export async function syncModels() {
   await sequelize.sync({ alter: false });
+  // Crear tablas nuevas de hipotecario si no existen
+  await MortgageLoan.sync();
+  await MortgageInstallment.sync();
   console.log("✓ Models synchronized");
 }

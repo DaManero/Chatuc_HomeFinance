@@ -21,6 +21,8 @@ import {
   InputAdornment,
   ToggleButtonGroup,
   ToggleButton,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import {
   AddOutlined,
@@ -29,6 +31,8 @@ import {
   PaymentOutlined,
   SearchOutlined,
   VisibilityOutlined,
+  AccountBalanceOutlined,
+  HomeOutlined,
 } from "@mui/icons-material";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/context/AuthContext";
@@ -36,6 +40,7 @@ import loanService from "@/services/loan.service";
 import LoanDialog from "@/components/loans/LoanDialog";
 import PaymentDialog from "@/components/loans/PaymentDialog";
 import PaymentHistoryDialog from "@/components/loans/PaymentHistoryDialog";
+import MortgageTab from "@/components/loans/MortgageTab";
 
 export default function LoansPage() {
   const { isAdmin } = useAuth();
@@ -52,6 +57,7 @@ export default function LoansPage() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState("Todos");
+  const [activeTab, setActiveTab] = useState(0);
 
   useEffect(() => {
     loadLoans();
@@ -89,7 +95,7 @@ export default function LoansPage() {
         (l) =>
           l.entity?.toLowerCase().includes(searchLower) ||
           l.description?.toLowerCase().includes(searchLower) ||
-          l.totalAmount.toString().includes(searchLower)
+          l.totalAmount.toString().includes(searchLower),
       );
     }
 
@@ -170,7 +176,7 @@ export default function LoansPage() {
       setError(
         err.response?.data?.error ||
           err.response?.data?.message ||
-          "Error al eliminar préstamo"
+          "Error al eliminar préstamo",
       );
     }
   };
@@ -186,7 +192,7 @@ export default function LoansPage() {
 
   const paginatedLoans = filteredLoans.slice(
     page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
+    page * rowsPerPage + rowsPerPage,
   );
 
   // Calcular totales
@@ -201,7 +207,7 @@ export default function LoansPage() {
 
       return acc;
     },
-    { totalPrestado: 0, totalPendiente: 0, totalPagado: 0 }
+    { totalPrestado: 0, totalPendiente: 0, totalPagado: 0 },
   );
 
   const getStatusColor = (status) => {
@@ -234,312 +240,350 @@ export default function LoansPage() {
   return (
     <DashboardLayout>
       <Box>
-        <Box
-          sx={{
-            mb: 4,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Préstamos
+          </Typography>
+        </Box>
+
+        <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
+          <Tabs
+            value={activeTab}
+            onChange={(e, v) => setActiveTab(v)}
+            aria-label="pestañas de préstamos"
+          >
+            <Tab
+              icon={<AccountBalanceOutlined />}
+              iconPosition="start"
+              label="Préstamos"
+            />
+            <Tab
+              icon={<HomeOutlined />}
+              iconPosition="start"
+              label="Hipotecario"
+            />
+          </Tabs>
+        </Box>
+
+        {activeTab === 0 && (
           <Box>
-            <Typography variant="h4" component="h1" gutterBottom>
-              Préstamos
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Gestión de préstamos recibidos
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            startIcon={<AddOutlined />}
-            onClick={() => handleOpenDialog()}
-          >
-            Nuevo Préstamo
-          </Button>
-        </Box>
+            {error && (
+              <Alert
+                severity="error"
+                sx={{ mb: 3 }}
+                onClose={() => setError("")}
+              >
+                {error}
+              </Alert>
+            )}
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError("")}>
-            {error}
-          </Alert>
-        )}
+            <Box
+              sx={{
+                mb: 3,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Typography variant="body1" color="text.secondary">
+                Gestión de préstamos recibidos
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<AddOutlined />}
+                onClick={() => handleOpenDialog()}
+              >
+                Nuevo Préstamo
+              </Button>
+            </Box>
 
-        {/* Tarjetas de resumen */}
-        <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
-          <Paper sx={{ flex: 1, p: 2 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Total Prestado
-            </Typography>
-            <Typography variant="h5" color="primary.main" fontWeight={600}>
-              ${" "}
-              {totals.totalPrestado.toLocaleString("es-AR", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </Typography>
-          </Paper>
-          <Paper sx={{ flex: 1, p: 2 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Pendiente de Pago
-            </Typography>
-            <Typography variant="h5" color="error.main" fontWeight={600}>
-              ${" "}
-              {totals.totalPendiente.toLocaleString("es-AR", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </Typography>
-          </Paper>
-          <Paper sx={{ flex: 1, p: 2 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Total Pagado
-            </Typography>
-            <Typography variant="h5" color="success.main" fontWeight={600}>
-              ${" "}
-              {totals.totalPagado.toLocaleString("es-AR", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </Typography>
-          </Paper>
-        </Box>
+            {/* Tarjetas de resumen */}
+            <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
+              <Paper sx={{ flex: 1, p: 2 }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Total Prestado
+                </Typography>
+                <Typography variant="h5" color="primary.main" fontWeight={600}>
+                  ${" "}
+                  {totals.totalPrestado.toLocaleString("es-AR", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </Typography>
+              </Paper>
+              <Paper sx={{ flex: 1, p: 2 }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Pendiente de Pago
+                </Typography>
+                <Typography variant="h5" color="error.main" fontWeight={600}>
+                  ${" "}
+                  {totals.totalPendiente.toLocaleString("es-AR", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </Typography>
+              </Paper>
+              <Paper sx={{ flex: 1, p: 2 }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Total Pagado
+                </Typography>
+                <Typography variant="h5" color="success.main" fontWeight={600}>
+                  ${" "}
+                  {totals.totalPagado.toLocaleString("es-AR", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </Typography>
+              </Paper>
+            </Box>
 
-        {/* Filtros */}
-        <Box
-          sx={{
-            mb: 3,
-            display: "flex",
-            gap: 2,
-            alignItems: "center",
-            flexWrap: "wrap",
-          }}
-        >
-          <TextField
-            placeholder="Buscar préstamos..."
-            value={searchTerm}
-            onChange={handleSearchChange}
-            size="small"
-            sx={{ minWidth: 250 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchOutlined />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <ToggleButtonGroup
-            value={filter}
-            exclusive
-            onChange={handleFilterChange}
-            aria-label="filtro de préstamos"
-            size="small"
-          >
-            <ToggleButton value="Todos" aria-label="todos">
-              Todos
-            </ToggleButton>
-            <ToggleButton value="Activo" aria-label="activos">
-              Activos
-            </ToggleButton>
-            <ToggleButton value="Pagado" aria-label="pagados">
-              Pagados
-            </ToggleButton>
-            <ToggleButton value="Vencido" aria-label="vencidos">
-              Vencidos
-            </ToggleButton>
-          </ToggleButtonGroup>
-        </Box>
+            {/* Filtros */}
+            <Box
+              sx={{
+                mb: 3,
+                display: "flex",
+                gap: 2,
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <TextField
+                placeholder="Buscar préstamos..."
+                value={searchTerm}
+                onChange={handleSearchChange}
+                size="small"
+                sx={{ minWidth: 250 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchOutlined />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <ToggleButtonGroup
+                value={filter}
+                exclusive
+                onChange={handleFilterChange}
+                aria-label="filtro de préstamos"
+                size="small"
+              >
+                <ToggleButton value="Todos" aria-label="todos">
+                  Todos
+                </ToggleButton>
+                <ToggleButton value="Activo" aria-label="activos">
+                  Activos
+                </ToggleButton>
+                <ToggleButton value="Pagado" aria-label="pagados">
+                  Pagados
+                </ToggleButton>
+                <ToggleButton value="Vencido" aria-label="vencidos">
+                  Vencidos
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
 
-        <TableContainer component={Paper}>
-          <Table
-            sx={{
-              "& .MuiTableCell-root": { textAlign: "left", py: 1 },
-              "& .MuiTableRow-root": { height: 52 },
-            }}
-          >
-            <TableHead>
-              <TableRow>
-                <TableCell>Entidad</TableCell>
-                <TableCell>Fecha</TableCell>
-                <TableCell align="right">Monto Total</TableCell>
-                <TableCell align="right">Pendiente</TableCell>
-                <TableCell align="right">Cuotas</TableCell>
-                <TableCell>Estado</TableCell>
-                <TableCell>Acciones</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {paginatedLoans.map((loan) => (
-                <TableRow key={loan.id} hover>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={500}>
-                      {loan.entity}
-                    </Typography>
-                    {loan.description && (
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{
-                          display: "block",
-                          maxWidth: 200,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {loan.description}
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {new Date(loan.loanDate + "T00:00:00").toLocaleDateString(
-                      "es-ES"
-                    )}
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography variant="body2" fontWeight={600}>
-                      {getCurrencySymbol(loan.currency)}{" "}
-                      {parseFloat(loan.totalAmount).toLocaleString("es-AR", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography
-                      variant="body2"
-                      fontWeight={600}
-                      color={
-                        parseFloat(loan.pendingAmount) > 0
-                          ? "error.main"
-                          : "success.main"
-                      }
-                    >
-                      {getCurrencySymbol(loan.currency)}{" "}
-                      {parseFloat(loan.pendingAmount).toLocaleString("es-AR", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography variant="body2">
-                      {loan.installments || "-"}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={loan.status}
-                      color={getStatusColor(loan.status)}
-                      size="small"
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <IconButton
-                      size="small"
-                      color="info"
-                      onClick={() => handleOpenHistoryDialog(loan.id)}
-                      title="Ver detalle de pagos"
-                    >
-                      <VisibilityOutlined fontSize="small" />
-                    </IconButton>
-                    {loan.status === "Activo" && (
-                      <IconButton
-                        size="small"
-                        color="success"
-                        onClick={() => handleOpenPaymentDialog(loan)}
-                        title="Registrar pago"
-                      >
-                        <PaymentOutlined fontSize="small" />
-                      </IconButton>
-                    )}
-                    {isAdmin() && (
-                      <>
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={() => handleOpenDialog(loan)}
-                          disabled={loan.payments && loan.payments.length > 0}
-                          title={
-                            loan.payments && loan.payments.length > 0
-                              ? "No se puede editar un préstamo con pagos"
-                              : "Editar"
+            <TableContainer component={Paper}>
+              <Table
+                sx={{
+                  "& .MuiTableCell-root": { textAlign: "left", py: 1 },
+                  "& .MuiTableRow-root": { height: 52 },
+                }}
+              >
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Entidad</TableCell>
+                    <TableCell>Fecha</TableCell>
+                    <TableCell align="right">Monto Total</TableCell>
+                    <TableCell align="right">Pendiente</TableCell>
+                    <TableCell align="right">Cuotas</TableCell>
+                    <TableCell>Estado</TableCell>
+                    <TableCell>Acciones</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {paginatedLoans.map((loan) => (
+                    <TableRow key={loan.id} hover>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={500}>
+                          {loan.entity}
+                        </Typography>
+                        {loan.description && (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{
+                              display: "block",
+                              maxWidth: 200,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {loan.description}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {new Date(
+                          loan.loanDate + "T00:00:00",
+                        ).toLocaleDateString("es-ES")}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" fontWeight={600}>
+                          {getCurrencySymbol(loan.currency)}{" "}
+                          {parseFloat(loan.totalAmount).toLocaleString(
+                            "es-AR",
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            },
+                          )}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography
+                          variant="body2"
+                          fontWeight={600}
+                          color={
+                            parseFloat(loan.pendingAmount) > 0
+                              ? "error.main"
+                              : "success.main"
                           }
                         >
-                          <EditOutlined fontSize="small" />
-                        </IconButton>
+                          {getCurrencySymbol(loan.currency)}{" "}
+                          {parseFloat(loan.pendingAmount).toLocaleString(
+                            "es-AR",
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            },
+                          )}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2">
+                          {loan.installments || "-"}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={loan.status}
+                          color={getStatusColor(loan.status)}
+                          size="small"
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell>
                         <IconButton
                           size="small"
-                          color="error"
-                          onClick={() => handleDelete(loan.id)}
-                          disabled={
-                            (loan.payments && loan.payments.length > 0) ||
-                            loan.status !== "Pagado"
-                          }
-                          title={
-                            loan.payments && loan.payments.length > 0
-                              ? "No se puede eliminar un préstamo con pagos registrados"
-                              : loan.status !== "Pagado"
-                              ? "Solo se pueden eliminar préstamos pagados"
-                              : "Eliminar"
-                          }
+                          color="info"
+                          onClick={() => handleOpenHistoryDialog(loan.id)}
+                          title="Ver detalle de pagos"
                         >
-                          <DeleteOutlined fontSize="small" />
+                          <VisibilityOutlined fontSize="small" />
                         </IconButton>
-                      </>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25, 50]}
-            component="div"
-            count={filteredLoans.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-            labelRowsPerPage="Filas por página:"
-            labelDisplayedRows={({ from, to, count }) =>
-              `${from}-${to} de ${count !== -1 ? count : `más de ${to}`}`
-            }
-          />
-        </TableContainer>
+                        {loan.status === "Activo" && (
+                          <IconButton
+                            size="small"
+                            color="success"
+                            onClick={() => handleOpenPaymentDialog(loan)}
+                            title="Registrar pago"
+                          >
+                            <PaymentOutlined fontSize="small" />
+                          </IconButton>
+                        )}
+                        {isAdmin() && (
+                          <>
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() => handleOpenDialog(loan)}
+                              disabled={
+                                loan.payments && loan.payments.length > 0
+                              }
+                              title={
+                                loan.payments && loan.payments.length > 0
+                                  ? "No se puede editar un préstamo con pagos"
+                                  : "Editar"
+                              }
+                            >
+                              <EditOutlined fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDelete(loan.id)}
+                              disabled={
+                                (loan.payments && loan.payments.length > 0) ||
+                                loan.status !== "Pagado"
+                              }
+                              title={
+                                loan.payments && loan.payments.length > 0
+                                  ? "No se puede eliminar un préstamo con pagos registrados"
+                                  : loan.status !== "Pagado"
+                                    ? "Solo se pueden eliminar préstamos pagados"
+                                    : "Eliminar"
+                              }
+                            >
+                              <DeleteOutlined fontSize="small" />
+                            </IconButton>
+                          </>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <TablePagination
+                rowsPerPageOptions={[5, 10, 25, 50]}
+                component="div"
+                count={filteredLoans.length}
+                rowsPerPage={rowsPerPage}
+                page={page}
+                onPageChange={handleChangePage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+                labelRowsPerPage="Filas por página:"
+                labelDisplayedRows={({ from, to, count }) =>
+                  `${from}-${to} de ${count !== -1 ? count : `más de ${to}`}`
+                }
+              />
+            </TableContainer>
 
-        {filteredLoans.length === 0 && !loading && (
-          <Box sx={{ textAlign: "center", py: 8 }}>
-            <Typography variant="body1" color="text.secondary">
-              {searchTerm || filter !== "Todos"
-                ? "No se encontraron préstamos que coincidan con los filtros"
-                : "No hay préstamos registrados"}
-            </Typography>
+            {filteredLoans.length === 0 && !loading && (
+              <Box sx={{ textAlign: "center", py: 8 }}>
+                <Typography variant="body1" color="text.secondary">
+                  {searchTerm || filter !== "Todos"
+                    ? "No se encontraron préstamos que coincidan con los filtros"
+                    : "No hay préstamos registrados"}
+                </Typography>
+              </Box>
+            )}
           </Box>
         )}
+
+        {activeTab === 1 && <MortgageTab />}
+
+        <LoanDialog
+          open={dialogOpen}
+          onClose={handleCloseDialog}
+          onSave={handleSaveLoan}
+          loan={selectedLoan}
+        />
+
+        <PaymentDialog
+          open={paymentDialogOpen}
+          onClose={handleClosePaymentDialog}
+          onSave={handleSavePayment}
+          loan={selectedLoan}
+        />
+
+        <PaymentHistoryDialog
+          open={historyDialogOpen}
+          onClose={handleCloseHistoryDialog}
+          loanId={selectedLoanId}
+        />
       </Box>
-
-      <LoanDialog
-        open={dialogOpen}
-        onClose={handleCloseDialog}
-        onSave={handleSaveLoan}
-        loan={selectedLoan}
-      />
-
-      <PaymentDialog
-        open={paymentDialogOpen}
-        onClose={handleClosePaymentDialog}
-        onSave={handleSavePayment}
-        loan={selectedLoan}
-      />
-
-      <PaymentHistoryDialog
-        open={historyDialogOpen}
-        onClose={handleCloseHistoryDialog}
-        loanId={selectedLoanId}
-      />
     </DashboardLayout>
   );
 }
