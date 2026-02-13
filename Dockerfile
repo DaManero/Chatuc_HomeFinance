@@ -1,44 +1,39 @@
-# Stage 1: Build
 FROM node:20-alpine AS builder
-
 WORKDIR /app
 
-# Copiar package.json y package-lock.json
+# Copiar archivos de dependencias primero
 COPY package*.json ./
 
 # Instalar dependencias
 RUN npm ci
 
-# Copiar código fuente
+# Copiar el resto del código fuente
 COPY . .
 
-# Asegurar que public existe (por si el contexto de build no lo incluye)
+# Crear directorio public si no existe
 RUN mkdir -p /app/public
 
-# Build Next.js
+# IMPORTANTE: Ejecutar el build ANTES de la siguiente etapa
 RUN npm run build
 
-# Stage 2: Runtime
-FROM node:20-alpine
-
+# Etapa de producción
+FROM node:20-alpine AS runner
 WORKDIR /app
 
 # Instalar dumb-init
 RUN apk add --no-cache dumb-init
 
-# Copiar node_modules y código compilado del builder
+# Copiar node_modules y archivos construidos desde builder
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/package*.json ./
 
-# Exponer puerto (Railway usa PORT env var)
-EXPOSE ${PORT:-3001}
+# Usuario no root para seguridad
+USER node
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD node -e "const port = process.env.PORT || 3001; require('http').get('http://localhost:' + port, (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+# Exponer puerto
+EXPOSE 3000
 
-# Usar dumb-init
-ENTRYPOINT ["dumb-init", "--"]
-CMD ["npm", "start"]
+# Comando de inicio
+CMD ["dumb-init", "node_modules/.bin/next", "start"]
