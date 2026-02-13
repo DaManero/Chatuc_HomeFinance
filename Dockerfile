@@ -13,7 +13,7 @@ COPY . .
 # Crear directorio public si no existe
 RUN mkdir -p /app/public
 
-# IMPORTANTE: Ejecutar el build ANTES de la siguiente etapa
+# Ejecutar el build
 RUN npm run build
 
 # Etapa de producción
@@ -23,11 +23,14 @@ WORKDIR /app
 # Instalar dumb-init
 RUN apk add --no-cache dumb-init
 
-# Copiar node_modules y archivos construidos desde builder
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
+# Copiar standalone output y archivos estáticos
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/package*.json ./
 
 # Usuario no root para seguridad
 USER node
@@ -35,5 +38,5 @@ USER node
 # Exponer puerto
 EXPOSE 3000
 
-# Comando de inicio
-CMD ["dumb-init", "node_modules/.bin/next", "start"]
+# Comando de inicio (standalone usa server.js)
+CMD ["dumb-init", "node", "server.js"]
