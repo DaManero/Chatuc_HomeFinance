@@ -5,7 +5,16 @@ export async function getRecurringProjection(req, res) {
   try {
     const userId = req.user.userId;
 
-    // Obtener todas las categorías recurrentes (incluir info del padre)
+    // Obtener el primer y último día del mes actual
+    const now = new Date();
+    const firstDayStr = new Date(now.getFullYear(), now.getMonth(), 1)
+      .toISOString()
+      .split("T")[0];
+    const lastDayStr = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+      .toISOString()
+      .split("T")[0];
+
+    // ── 1. Obtener todas las categorías recurrentes con su padre ──────────────
     const recurringCategories = await models.Category.findAll({
       where: { isRecurring: true, userId },
       include: [
@@ -13,143 +22,125 @@ export async function getRecurringProjection(req, res) {
           model: models.Category,
           as: "parentCategory",
           attributes: ["id", "name", "type"],
+          required: false,
         },
       ],
       order: [["name", "ASC"]],
     });
 
-    // IDs de todas las categorías recurrentes (para filtros posteriores)
+    if (recurringCategories.length === 0) {
+      return res.json({
+        projections: [],
+        summary: {
+          totalIngresos: 0,
+          totalEgresos: 0,
+          balance: 0,
+          totalIngresosARS: 0,
+          totalIngresosUSD: 0,
+          totalEgresosARS: 0,
+          totalEgresosUSD: 0,
+          balanceARS: 0,
+          balanceUSD: 0,
+        },
+      });
+    }
+
     const allRecurringCategoryIds = recurringCategories.map((c) => c.id);
 
-    // Obtener el primer y último día del mes actual
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-    // Para cada categoría, buscar todas las transacciones del mes actual
-    const rawProjections = await Promise.all(
-      recurringCategories.map(async (category) => {
-        // Usar solo el ID de la categoría recurrente directa
-        // Las subcategorías recurrentes se procesan en su propia iteración del loop
-        const categoryIds = [category.id];
-
-        // Buscar todas las transacciones del mes actual para esta categoría recurrente
-        const currentMonthTransactions = await models.Transaction.findAll({
-          where: {
-            categoryId: { [Op.in]: categoryIds },
-            userId,
-            date: {
-              [Op.between]: [
-                firstDay.toISOString().split("T")[0],
-                lastDay.toISOString().split("T")[0],
-              ],
-            },
-          },
-        });
-
-        // Sumar todas las transacciones del mes actual
-        const totals = currentMonthTransactions.reduce(
-          (acc, transaction) => {
-            const amount = parseFloat(transaction.amount);
-            const currency = transaction.currency || "ARS";
-
-            if (currency === "USD") {
-              acc.totalUSD += amount;
-            } else {
-              acc.totalARS += amount;
-            }
-
-            return acc;
-          },
-          { totalARS: 0, totalUSD: 0 },
-        );
-
-        // Fecha de última transacción del mes actual (solo del mes en curso)
-        const lastTransaction =
-          currentMonthTransactions.length > 0
-            ? currentMonthTransactions.reduce(
-                (latest, tx) =>
-                  !latest || tx.date > latest.date ? tx : latest,
-                null,
-              )
-            : null;
-
-        const totalAmount = totals.totalARS + totals.totalUSD;
-
-        // Determinar el ID y nombre a usar (padre si es subcategoría)
-        const groupId = category.parentCategoryId
+    // Resolver el grupo (categoría padre o sí misma) de forma SEGURA para cada subcategoría
+    const resolveGroup = (category) => ({
+      groupId:
+        category.parentCategoryId && category.parentCategory
           ? category.parentCategory.id
-          : category.id;
-        const groupName = category.parentCategoryId
+          : category.id,
+      groupName:
+        category.parentCategoryId && category.parentCategory
           ? category.parentCategory.name
-          : category.name;
-        const groupType = category.parentCategoryId
+          : category.name,
+      groupType:
+        category.parentCategoryId && category.parentCategory
           ? category.parentCategory.type
-          : category.type;
+          : category.type,
+    });
 
-        return {
-          groupId,
-          groupName,
-          groupType,
-          categoryId: category.id,
-          categoryName: category.name,
-          type: category.type,
-          lastAmount: totalAmount,
-          lastAmountARS: totals.totalARS,
-          lastAmountUSD: totals.totalUSD,
-          lastDate: lastTransaction ? lastTransaction.date : null,
-          projectedAmount: totalAmount,
-          projectedAmountARS: totals.totalARS,
-          projectedAmountUSD: totals.totalUSD,
-          transactionCount: currentMonthTransactions.length,
-        };
-      }),
+    // Mapa: categoryId → { groupId, groupName, groupType }
+    const categoryGroupMap = new Map(
+      recurringCategories.map((cat) => [cat.id, resolveGroup(cat)]),
     );
 
-    // Agrupar subcategorías bajo su categoría padre
+    // ── 2. Una sola query para TODAS las transacciones del mes actual ─────────
+    const transactions = await models.Transaction.findAll({
+      where: {
+        userId,
+        categoryId: { [Op.in]: allRecurringCategoryIds },
+        date: { [Op.between]: [firstDayStr, lastDayStr] },
+      },
+      attributes: ["id", "amount", "currency", "date", "categoryId"],
+    });
+
+    // ── 3. Agrupar transacciones por grupo (categoría padre) ──────────────────
     const groupedMap = new Map();
-    rawProjections.forEach((proj) => {
-      const key = proj.groupId;
-      if (groupedMap.has(key)) {
-        const existing = groupedMap.get(key);
-        existing.lastAmount += proj.lastAmount;
-        existing.lastAmountARS += proj.lastAmountARS;
-        existing.lastAmountUSD += proj.lastAmountUSD;
-        existing.projectedAmount += proj.projectedAmount;
-        existing.projectedAmountARS += proj.projectedAmountARS;
-        existing.projectedAmountUSD += proj.projectedAmountUSD;
-        existing.transactionCount += proj.transactionCount;
-        // Mantener la fecha más reciente
-        if (
-          proj.lastDate &&
-          (!existing.lastDate ||
-            new Date(proj.lastDate) > new Date(existing.lastDate))
-        ) {
-          existing.lastDate = proj.lastDate;
-        }
-      } else {
-        groupedMap.set(key, {
-          categoryId: proj.groupId,
-          categoryName: proj.groupName,
-          type: proj.groupType,
-          lastAmount: proj.lastAmount,
-          lastAmountARS: proj.lastAmountARS,
-          lastAmountUSD: proj.lastAmountUSD,
-          lastDate: proj.lastDate,
-          projectedAmount: proj.projectedAmount,
-          projectedAmountARS: proj.projectedAmountARS,
-          projectedAmountUSD: proj.projectedAmountUSD,
-          transactionCount: proj.transactionCount,
+
+    const ensureGroup = (groupId, groupName, groupType) => {
+      if (!groupedMap.has(groupId)) {
+        groupedMap.set(groupId, {
+          categoryId: groupId,
+          categoryName: groupName,
+          type: groupType,
+          lastAmountARS: 0,
+          lastAmountUSD: 0,
+          lastAmount: 0,
+          projectedAmountARS: 0,
+          projectedAmountUSD: 0,
+          projectedAmount: 0,
+          transactionCount: 0,
+          lastDate: null,
         });
+      }
+      return groupedMap.get(groupId);
+    };
+
+    // Inicializar todos los grupos con $0 (para que aparezcan aunque no tengan transacciones este mes)
+    recurringCategories.forEach((cat) => {
+      const { groupId, groupName, groupType } = categoryGroupMap.get(cat.id);
+      ensureGroup(groupId, groupName, groupType);
+    });
+
+    transactions.forEach((tx) => {
+      const group = categoryGroupMap.get(tx.categoryId);
+      if (!group) return;
+      const entry = ensureGroup(
+        group.groupId,
+        group.groupName,
+        group.groupType,
+      );
+
+      const amount = parseFloat(tx.amount);
+      const currency = tx.currency || "ARS";
+
+      if (currency === "USD") {
+        entry.lastAmountUSD += amount;
+        entry.projectedAmountUSD += amount;
+      } else {
+        entry.lastAmountARS += amount;
+        entry.projectedAmountARS += amount;
+      }
+      entry.lastAmount += amount;
+      entry.projectedAmount += amount;
+      entry.transactionCount += 1;
+
+      if (!entry.lastDate || tx.date > entry.lastDate) {
+        entry.lastDate = tx.date;
       }
     });
 
     const projections = Array.from(groupedMap.values());
-
-    const projectionsByCategory = new Map(
-      projections.map((projection) => [projection.categoryId, projection]),
+    // Mapa actualizado para lookups de charges y TC expenses
+    const projectionsByGroupId = new Map(
+      projections.map((p) => [p.categoryId, p]),
     );
 
+    // ── 4. Débitos automáticos (CreditCardRecurringCharge) ────────────────────
     const recurringCharges = await models.CreditCardRecurringCharge.findAll({
       where: {
         userId,
@@ -161,233 +152,112 @@ export async function getRecurringProjection(req, res) {
           model: models.Category,
           as: "category",
           attributes: ["id", "name", "type", "parentCategoryId"],
+          required: false,
           include: [
             {
               model: models.Category,
               as: "parentCategory",
               attributes: ["id", "name", "type"],
+              required: false,
             },
           ],
         },
       ],
     });
 
-    const recurringChargesByCategory = new Map();
-
     recurringCharges.forEach((charge) => {
       if (!charge.category) return;
+      const { groupId, groupName, groupType } = resolveGroup(charge.category);
+      const entry = ensureGroup(groupId, groupName, groupType);
 
-      const cat = charge.category;
-      // Resolver a la categoría padre si es subcategoría
-      const categoryId = cat.parentCategoryId
-        ? cat.parentCategory?.id || cat.id
-        : cat.id;
-      const categoryName = cat.parentCategoryId
-        ? cat.parentCategory?.name || cat.name
-        : cat.name;
-      const categoryType = cat.parentCategoryId
-        ? cat.parentCategory?.type || cat.type
-        : cat.type;
-
-      const current = recurringChargesByCategory.get(categoryId) || {
-        categoryId,
-        categoryName,
-        type: categoryType,
-        totalARS: 0,
-        totalUSD: 0,
-      };
-
-      const chargeAmount = parseFloat(charge.amount);
-      const chargeCurrency = charge.currency || "ARS";
-
-      if (chargeCurrency === "USD") {
-        current.totalUSD += chargeAmount;
+      const amount = parseFloat(charge.amount);
+      const currency = charge.currency || "ARS";
+      if (currency === "USD") {
+        entry.lastAmountUSD += amount;
+        entry.projectedAmountUSD += amount;
       } else {
-        current.totalARS += chargeAmount;
+        entry.lastAmountARS += amount;
+        entry.projectedAmountARS += amount;
       }
-
-      recurringChargesByCategory.set(categoryId, current);
+      entry.lastAmount += amount;
+      entry.projectedAmount += amount;
     });
 
-    recurringChargesByCategory.forEach((chargeTotal) => {
-      const existingProjection = projectionsByCategory.get(
-        chargeTotal.categoryId,
-      );
-
-      if (existingProjection) {
-        existingProjection.lastAmount +=
-          chargeTotal.totalARS + chargeTotal.totalUSD;
-        existingProjection.lastAmountARS += chargeTotal.totalARS;
-        existingProjection.lastAmountUSD += chargeTotal.totalUSD;
-        existingProjection.projectedAmount +=
-          chargeTotal.totalARS + chargeTotal.totalUSD;
-        existingProjection.projectedAmountARS += chargeTotal.totalARS;
-        existingProjection.projectedAmountUSD += chargeTotal.totalUSD;
-      } else {
-        const projectedTotal = chargeTotal.totalARS + chargeTotal.totalUSD;
-        projections.push({
-          categoryId: chargeTotal.categoryId,
-          categoryName: chargeTotal.categoryName,
-          type: chargeTotal.type,
-          lastAmount: projectedTotal,
-          lastAmountARS: chargeTotal.totalARS,
-          lastAmountUSD: chargeTotal.totalUSD,
-          lastDate: null,
-          projectedAmount: projectedTotal,
-          projectedAmountARS: chargeTotal.totalARS,
-          projectedAmountUSD: chargeTotal.totalUSD,
-          transactionCount: 0,
-        });
-      }
-    });
-
-    // --- Incluir gastos de tarjeta de crédito de 1 cuota en categorías recurrentes ---
-    // Buscar gastos de TC de 1 cuota del mes actual asignados a categorías recurrentes
-    // Usamos purchaseDate (no dueDate de la cuota) porque para 1 cuota el dueDate cae en el mes siguiente
+    // ── 5. Gastos de TC en 1 cuota del mes actual (purchaseDate en mes actual) ─
     const singleInstallmentExpenses = await models.CreditCardExpense.findAll({
       where: {
         userId,
         installments: 1,
         categoryId: { [Op.in]: allRecurringCategoryIds },
-        purchaseDate: {
-          [Op.between]: [
-            firstDay.toISOString().split("T")[0],
-            lastDay.toISOString().split("T")[0],
-          ],
-        },
+        purchaseDate: { [Op.between]: [firstDayStr, lastDayStr] },
       },
       include: [
         {
           model: models.Category,
           as: "category",
           attributes: ["id", "name", "type", "parentCategoryId"],
+          required: false,
           include: [
             {
               model: models.Category,
               as: "parentCategory",
               attributes: ["id", "name", "type"],
+              required: false,
             },
           ],
         },
       ],
+      attributes: ["id", "totalAmount", "currency", "categoryId"],
     });
 
-    // Agrupar por categoría padre (igual que el resto)
-    const singleInstExpByCategory = new Map();
     singleInstallmentExpenses.forEach((expense) => {
       if (!expense.category) return;
+      const { groupId, groupName, groupType } = resolveGroup(expense.category);
+      const entry = ensureGroup(groupId, groupName, groupType);
 
-      const cat = expense.category;
-      // Usar la categoría padre si es subcategoría
-      const categoryId = cat.parentCategoryId
-        ? cat.parentCategory?.id || cat.id
-        : cat.id;
-      const categoryName = cat.parentCategoryId
-        ? cat.parentCategory?.name || cat.name
-        : cat.name;
-      const categoryType = cat.parentCategoryId
-        ? cat.parentCategory?.type || cat.type
-        : cat.type;
-
-      const current = singleInstExpByCategory.get(categoryId) || {
-        categoryId,
-        categoryName,
-        type: categoryType,
-        totalARS: 0,
-        totalUSD: 0,
-      };
-
-      const expAmount = parseFloat(expense.totalAmount);
-      const expCurrency = expense.currency || "ARS";
-
-      if (expCurrency === "USD") {
-        current.totalUSD += expAmount;
+      const amount = parseFloat(expense.totalAmount);
+      const currency = expense.currency || "ARS";
+      if (currency === "USD") {
+        entry.lastAmountUSD += amount;
+        entry.projectedAmountUSD += amount;
       } else {
-        current.totalARS += expAmount;
+        entry.lastAmountARS += amount;
+        entry.projectedAmountARS += amount;
       }
-
-      singleInstExpByCategory.set(categoryId, current);
+      entry.lastAmount += amount;
+      entry.projectedAmount += amount;
     });
 
-    // Actualizar projectionsByCategory con la referencia actualizada
-    const updatedProjectionsByCategory = new Map(
-      projections.map((p) => [p.categoryId, p]),
-    );
-
-    singleInstExpByCategory.forEach((expTotal) => {
-      const existingProjection = updatedProjectionsByCategory.get(
-        expTotal.categoryId,
-      );
-
-      if (existingProjection) {
-        existingProjection.lastAmount += expTotal.totalARS + expTotal.totalUSD;
-        existingProjection.lastAmountARS += expTotal.totalARS;
-        existingProjection.lastAmountUSD += expTotal.totalUSD;
-        existingProjection.projectedAmount +=
-          expTotal.totalARS + expTotal.totalUSD;
-        existingProjection.projectedAmountARS += expTotal.totalARS;
-        existingProjection.projectedAmountUSD += expTotal.totalUSD;
-      } else {
-        const projectedTotal = expTotal.totalARS + expTotal.totalUSD;
-        projections.push({
-          categoryId: expTotal.categoryId,
-          categoryName: expTotal.categoryName,
-          type: expTotal.type,
-          lastAmount: projectedTotal,
-          lastAmountARS: expTotal.totalARS,
-          lastAmountUSD: expTotal.totalUSD,
-          lastDate: null,
-          projectedAmount: projectedTotal,
-          projectedAmountARS: expTotal.totalARS,
-          projectedAmountUSD: expTotal.totalUSD,
-          transactionCount: 0,
-        });
-      }
-    });
-
+    // ── 6. Calcular totales y responder ───────────────────────────────────────
     projections.sort((a, b) => a.categoryName.localeCompare(b.categoryName));
 
-    // Calcular totales
     const totalIngresosARS = projections
       .filter((p) => p.type === "Ingreso")
-      .reduce((sum, p) => sum + p.projectedAmountARS, 0);
-
+      .reduce((s, p) => s + p.projectedAmountARS, 0);
     const totalIngresosUSD = projections
       .filter((p) => p.type === "Ingreso")
-      .reduce((sum, p) => sum + p.projectedAmountUSD, 0);
-
+      .reduce((s, p) => s + p.projectedAmountUSD, 0);
     const totalEgresosARS = projections
       .filter((p) => p.type === "Egreso")
-      .reduce((sum, p) => sum + p.projectedAmountARS, 0);
-
+      .reduce((s, p) => s + p.projectedAmountARS, 0);
     const totalEgresosUSD = projections
       .filter((p) => p.type === "Egreso")
-      .reduce((sum, p) => sum + p.projectedAmountUSD, 0);
-
-    const totalIngresos = projections
-      .filter((p) => p.type === "Ingreso")
-      .reduce((sum, p) => sum + p.projectedAmount, 0);
-
-    const totalEgresos = projections
-      .filter((p) => p.type === "Egreso")
-      .reduce((sum, p) => sum + p.projectedAmount, 0);
-
-    const balance = totalIngresos - totalEgresos;
-    const balanceARS = totalIngresosARS - totalEgresosARS;
-    const balanceUSD = totalIngresosUSD - totalEgresosUSD;
+      .reduce((s, p) => s + p.projectedAmountUSD, 0);
+    const totalIngresos = totalIngresosARS + totalIngresosUSD;
+    const totalEgresos = totalEgresosARS + totalEgresosUSD;
 
     res.json({
       projections,
       summary: {
         totalIngresos,
         totalEgresos,
-        balance,
+        balance: totalIngresos - totalEgresos,
         totalIngresosARS,
         totalIngresosUSD,
         totalEgresosARS,
         totalEgresosUSD,
-        balanceARS,
-        balanceUSD,
+        balanceARS: totalIngresosARS - totalEgresosARS,
+        balanceUSD: totalIngresosUSD - totalEgresosUSD,
       },
     });
   } catch (err) {
