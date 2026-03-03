@@ -64,23 +64,15 @@ export async function getRecurringProjection(req, res) {
           { totalARS: 0, totalUSD: 0 },
         );
 
-        // Obtener la última transacción para mostrar la fecha (incluye subcategorías)
-        const lastTransaction = await models.Transaction.findOne({
-          where: { categoryId: { [Op.in]: categoryIds }, userId },
-          order: [["date", "DESC"]],
-        });
-
-        // Si no hubo movimientos este mes, usar el último monto registrado
-        if (totals.totalARS === 0 && totals.totalUSD === 0 && lastTransaction) {
-          const lastAmount = parseFloat(lastTransaction.amount);
-          const lastCurrency = lastTransaction.currency || "ARS";
-
-          if (lastCurrency === "USD") {
-            totals.totalUSD = lastAmount;
-          } else {
-            totals.totalARS = lastAmount;
-          }
-        }
+        // Fecha de última transacción del mes actual (solo del mes en curso)
+        const lastTransaction =
+          currentMonthTransactions.length > 0
+            ? currentMonthTransactions.reduce(
+                (latest, tx) =>
+                  !latest || tx.date > latest.date ? tx : latest,
+                null,
+              )
+            : null;
 
         const totalAmount = totals.totalARS + totals.totalUSD;
 
