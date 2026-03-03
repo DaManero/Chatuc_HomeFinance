@@ -35,6 +35,7 @@ export async function getPendingInstallments(req, res) {
             "totalAmount",
             "installments",
             "purchaseDate",
+            "currency",
           ],
         },
       ],
@@ -60,7 +61,7 @@ export async function getPendingInstallments(req, res) {
     const grouped = installments.reduce((acc, installment) => {
       const dueDate = new Date(installment.dueDate);
       const monthKey = `${dueDate.getFullYear()}-${String(
-        dueDate.getMonth() + 1
+        dueDate.getMonth() + 1,
       ).padStart(2, "0")}`;
 
       if (!acc[monthKey]) {
@@ -167,7 +168,7 @@ export async function markInstallmentAsPaid(req, res) {
 
     const today = new Date();
     const paidDate = `${today.getFullYear()}-${String(
-      today.getMonth() + 1
+      today.getMonth() + 1,
     ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
     await installment.update({
