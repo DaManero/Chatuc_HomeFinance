@@ -403,3 +403,124 @@ export async function getRecurringProjection(req, res) {
     res.status(500).json({ error: "Error al obtener proyección" });
   }
 }
+
+export async function getProjectionHistory(req, res) {
+  try {
+    const userId = req.user.userId;
+    const months = Math.min(parseInt(req.query.months) || 6, 24);
+
+    const now = new Date();
+
+    // Construir array de los últimos N meses (excluyendo el mes actual)
+    const monthRanges = [];
+    for (let i = months; i >= 1; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const firstDay = new Date(d.getFullYear(), d.getMonth(), 1);
+      const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      monthRanges.push({
+        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+        year: d.getFullYear(),
+        monthNumber: d.getMonth() + 1,
+        firstDay: firstDay.toISOString().split("T")[0],
+        lastDay: lastDay.toISOString().split("T")[0],
+      });
+    }
+
+    // Consultar todas las transacciones del rango completo de una sola vez
+    const oldest = monthRanges[0].firstDay;
+    const newest = monthRanges[monthRanges.length - 1].lastDay;
+
+    const transactions = await models.Transaction.findAll({
+      where: {
+        userId,
+        date: { [Op.between]: [oldest, newest] },
+      },
+      include: [
+        {
+          model: models.Category,
+          as: "category",
+          attributes: ["id", "name", "type"],
+          required: false,
+        },
+      ],
+      attributes: ["id", "amount", "currency", "date", "type", "categoryId"],
+      order: [["date", "ASC"]],
+    });
+
+    // Agrupar transacciones por mes → categoría
+    const historyMap = new Map(); // key: "YYYY-MM"
+
+    monthRanges.forEach((m) => {
+      historyMap.set(m.key, {
+        month: m.key,
+        year: m.year,
+        monthNumber: m.monthNumber,
+        categories: new Map(), // categoryId → { categoryName, type, totalARS, totalUSD }
+        totalIngresosARS: 0,
+        totalIngresosUSD: 0,
+        totalEgresosARS: 0,
+        totalEgresosUSD: 0,
+      });
+    });
+
+    transactions.forEach((tx) => {
+      const date = new Date(tx.date + "T00:00:00");
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const monthData = historyMap.get(key);
+      if (!monthData) return;
+
+      const amount = parseFloat(tx.amount);
+      const currency = tx.currency || "ARS";
+      const categoryId = tx.categoryId || 0;
+      const categoryName = tx.category?.name || "Sin categoría";
+      const categoryType = tx.category?.type || tx.type || "Egreso";
+
+      if (!monthData.categories.has(categoryId)) {
+        monthData.categories.set(categoryId, {
+          categoryId,
+          categoryName,
+          type: categoryType,
+          totalARS: 0,
+          totalUSD: 0,
+        });
+      }
+
+      const cat = monthData.categories.get(categoryId);
+      if (currency === "USD") {
+        cat.totalUSD += amount;
+      } else {
+        cat.totalARS += amount;
+      }
+
+      // Acumular totales del mes
+      if (categoryType === "Ingreso") {
+        if (currency === "USD") monthData.totalIngresosUSD += amount;
+        else monthData.totalIngresosARS += amount;
+      } else {
+        if (currency === "USD") monthData.totalEgresosUSD += amount;
+        else monthData.totalEgresosARS += amount;
+      }
+    });
+
+    // Convertir Maps a arrays y ordenar categorías por nombre
+    const history = Array.from(historyMap.values()).map((monthData) => ({
+      month: monthData.month,
+      year: monthData.year,
+      monthNumber: monthData.monthNumber,
+      totalIngresosARS: monthData.totalIngresosARS,
+      totalIngresosUSD: monthData.totalIngresosUSD,
+      totalEgresosARS: monthData.totalEgresosARS,
+      totalEgresosUSD: monthData.totalEgresosUSD,
+      balanceARS: monthData.totalIngresosARS - monthData.totalEgresosARS,
+      balanceUSD: monthData.totalIngresosUSD - monthData.totalEgresosUSD,
+      categories: Array.from(monthData.categories.values()).sort((a, b) =>
+        a.categoryName.localeCompare(b.categoryName),
+      ),
+    }));
+
+    res.json({ history });
+  } catch (err) {
+    console.error("Error en getProjectionHistory:", err);
+    res.status(500).json({ error: "Error al obtener historial" });
+  }
+}
