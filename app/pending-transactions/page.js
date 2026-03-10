@@ -25,6 +25,7 @@ import {
   CircularProgress,
   Tabs,
   Tab,
+  ListSubheader,
 } from "@mui/material";
 import {
   CheckCircle as CheckIcon,
@@ -85,7 +86,7 @@ export default function PendingTransactionsPage() {
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          "Error al cargar las transacciones pendientes"
+          "Error al cargar las transacciones pendientes",
       );
     } finally {
       setLoading(false);
@@ -128,7 +129,7 @@ export default function PendingTransactionsPage() {
 
       // Encontrar la categoría seleccionada
       const selectedCategory = categories.find(
-        (c) => c.id === parseInt(formData.categoryId)
+        (c) => c.id === parseInt(formData.categoryId),
       );
 
       const processData = {
@@ -146,7 +147,7 @@ export default function PendingTransactionsPage() {
 
       await pendingTransactionService.processPendingTransaction(
         selectedTransaction.id,
-        processData
+        processData,
       );
 
       setSuccess("Transacción procesada correctamente");
@@ -154,7 +155,7 @@ export default function PendingTransactionsPage() {
       loadData();
     } catch (err) {
       setError(
-        err.response?.data?.message || "Error al procesar la transacción"
+        err.response?.data?.message || "Error al procesar la transacción",
       );
     }
   };
@@ -169,7 +170,7 @@ export default function PendingTransactionsPage() {
       loadData();
     } catch (err) {
       setError(
-        err.response?.data?.message || "Error al descartar la transacción"
+        err.response?.data?.message || "Error al descartar la transacción",
       );
     }
   };
@@ -200,9 +201,12 @@ export default function PendingTransactionsPage() {
     }
   };
 
-  // Filtrar categorías según el tipo de transacción
-  const filteredCategories = categories.filter(
-    (cat) => cat.type === formData.type
+  // Filtrar categorías según el tipo de transacción, agrupadas por padre/subcategoría
+  const mainCategories = categories.filter(
+    (cat) => cat.type === formData.type && !cat.parentCategoryId,
+  );
+  const subcategories = categories.filter(
+    (cat) => cat.type === formData.type && cat.parentCategoryId,
   );
 
   if (loading) {
@@ -443,13 +447,46 @@ export default function PendingTransactionsPage() {
                   }
                 >
                   <MenuItem value="">
-                    <em>Crear nueva: {formData.categoryName}</em>
+                    <em>Sin categoría</em>
                   </MenuItem>
-                  {filteredCategories.map((cat) => (
-                    <MenuItem key={cat.id} value={cat.id}>
-                      {cat.name}
+                  {mainCategories.length === 0 && subcategories.length === 0 ? (
+                    <MenuItem disabled>
+                      No hay categorías de tipo {formData.type}
                     </MenuItem>
-                  ))}
+                  ) : (
+                    mainCategories.flatMap((mainCat) => {
+                      const subcats = subcategories.filter(
+                        (sub) => sub.parentCategoryId === mainCat.id,
+                      );
+                      return [
+                        <ListSubheader key={`header-${mainCat.id}`}>
+                          <Typography
+                            variant="body2"
+                            fontWeight={600}
+                            color="primary"
+                          >
+                            {mainCat.name}
+                          </Typography>
+                        </ListSubheader>,
+                        <MenuItem
+                          key={`main-${mainCat.id}`}
+                          value={mainCat.id}
+                          sx={{ pl: 4, fontWeight: 500 }}
+                        >
+                          {mainCat.name}
+                        </MenuItem>,
+                        ...subcats.map((subcat) => (
+                          <MenuItem
+                            key={`sub-${subcat.id}`}
+                            value={subcat.id}
+                            sx={{ pl: 6 }}
+                          >
+                            {subcat.name}
+                          </MenuItem>
+                        )),
+                      ];
+                    })
+                  )}
                 </TextField>
 
                 <TextField
