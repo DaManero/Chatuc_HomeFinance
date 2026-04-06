@@ -474,10 +474,7 @@ export default function GastosFijosPage() {
                               ).toLocaleDateString("es-ES")
                             : "-"}
                         </TableCell>
-                        <TableCell
-                          component="span"
-                          sx={{ fontWeight: 600, display: "inline-flex" }}
-                        >
+                        <TableCell sx={{ fontWeight: 600 }}>
                           {renderCurrencyAmounts(
                             projection.projectedAmountARS || 0,
                             projection.projectedAmountUSD || 0,

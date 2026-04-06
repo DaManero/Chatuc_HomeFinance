@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import {
   Box,
   Typography,
@@ -42,6 +44,23 @@ export default function PendingInstallmentsTab({
   pendingInstallments,
   onMarkAsPaid,
 }) {
+  const [expandedMonth, setExpandedMonth] = useState(false);
+
+  useEffect(() => {
+    if (!pendingInstallments || pendingInstallments.length === 0) {
+      setExpandedMonth(false);
+      return;
+    }
+
+    const currentExpandedStillExists = pendingInstallments.some(
+      (monthGroup) => monthGroup.month === expandedMonth,
+    );
+
+    if (!currentExpandedStillExists) {
+      setExpandedMonth(pendingInstallments[0].month);
+    }
+  }, [pendingInstallments, expandedMonth]);
+
   const formatCurrency = (amount, currency = "ARS") => {
     return new Intl.NumberFormat("es-AR", {
       style: "currency",
@@ -69,8 +88,14 @@ export default function PendingInstallmentsTab({
         Cuotas Pendientes por Mes
       </Typography>
 
-      {pendingInstallments.map((monthGroup, index) => (
-        <Accordion key={monthGroup.month} defaultExpanded={index === 0}>
+      {pendingInstallments.map((monthGroup) => (
+        <Accordion
+          key={monthGroup.month}
+          expanded={expandedMonth === monthGroup.month}
+          onChange={(_, isExpanded) => {
+            setExpandedMonth(isExpanded ? monthGroup.month : false);
+          }}
+        >
           <AccordionSummary expandIcon={<ExpandMoreOutlined />}>
             <Box
               sx={{
@@ -177,7 +202,7 @@ export default function PendingInstallmentsTab({
                         >
                           {formatCurrency(
                             installment.amount,
-                            installment.currency || "ARS"
+                            installment.currency || "ARS",
                           )}
                         </Typography>
                       </TableCell>

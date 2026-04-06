@@ -1,34 +1,66 @@
 import { models } from "../models/index.js";
 import { Op } from "sequelize";
+import {
+  buildDueDateFromPaymentPeriod,
+  deriveStatementPeriodFromDueDate,
+  getInstallmentPeriods,
+} from "../utils/creditCardPeriods.js";
 
-// Función helper para calcular la fecha de vencimiento de una cuota
-function calculateInstallmentDueDate(
-  purchaseDate,
+function buildInstallmentAmounts(totalAmount, installments) {
+  const totalInCents = Math.round(parseFloat(totalAmount) * 100);
+  const baseInstallment = Math.floor(totalInCents / installments);
+  const amounts = [];
+  let accumulated = 0;
+
+  for (let index = 0; index < installments; index += 1) {
+    let installmentAmount = baseInstallment;
+
+    if (index === installments - 1) {
+      installmentAmount = totalInCents - accumulated;
+    }
+
+    accumulated += installmentAmount;
+    amounts.push((installmentAmount / 100).toFixed(2));
+  }
+
+  return amounts;
+}
+
+function buildInstallmentsData({
+  expenseId,
+  totalAmount,
+  installments,
+  firstStatementMonth,
+  firstStatementYear,
   creditCard,
-  installmentNumber,
-) {
-  const purchase = new Date(purchaseDate + "T00:00:00");
-  const dueDay = creditCard.dueDay;
+}) {
+  const installmentAmounts = buildInstallmentAmounts(totalAmount, installments);
 
-  // Calcular el mes de vencimiento
-  let dueMonth = purchase.getMonth() + installmentNumber;
-  let dueYear = purchase.getFullYear();
+  return installmentAmounts.map((amount, index) => {
+    const installmentNumber = index + 1;
+    const { statementPeriod, paymentPeriod } = getInstallmentPeriods(
+      firstStatementMonth,
+      firstStatementYear,
+      installmentNumber,
+    );
 
-  // Ajustar año si el mes supera diciembre
-  while (dueMonth > 11) {
-    dueMonth -= 12;
-    dueYear += 1;
-  }
-
-  // Crear fecha de vencimiento
-  let dueDate = new Date(dueYear, dueMonth, dueDay);
-
-  // Si el día no existe en ese mes (ej: 31 de febrero), usar el último día del mes
-  if (dueDate.getMonth() !== dueMonth) {
-    dueDate = new Date(dueYear, dueMonth + 1, 0);
-  }
-
-  return dueDate.toISOString().split("T")[0];
+    return {
+      installmentNumber,
+      amount,
+      dueDate: buildDueDateFromPaymentPeriod(
+        paymentPeriod.month,
+        paymentPeriod.year,
+        creditCard.dueDay,
+      ),
+      statementMonth: statementPeriod.month,
+      statementYear: statementPeriod.year,
+      paymentMonth: paymentPeriod.month,
+      paymentYear: paymentPeriod.year,
+      status: "projected",
+      isPaid: false,
+      expenseId,
+    };
+  });
 }
 
 export async function createCreditCardExpense(req, res) {
@@ -38,6 +70,8 @@ export async function createCreditCardExpense(req, res) {
       totalAmount,
       installments,
       purchaseDate,
+      firstStatementMonth,
+      firstStatementYear,
       currency,
       creditCardId,
       categoryId,
@@ -58,9 +92,17 @@ export async function createCreditCardExpense(req, res) {
       return res.status(400).json({ error: "Las cuotas deben ser al menos 1" });
     }
 
+    const purchaseDateValue =
+      purchaseDate || new Date().toISOString().split("T")[0];
+    const purchase = new Date(`${purchaseDateValue}T00:00:00`);
+    const fallbackStatementPeriod = {
+      month: purchase.getMonth() + 1,
+      year: purchase.getFullYear(),
+    };
+
     // Verificar que la tarjeta existe
     const creditCard = await models.CreditCard.findOne({
-      where: { id: creditCardId },
+      where: { id: creditCardId, userId },
     });
 
     if (!creditCard) {
@@ -71,7 +113,7 @@ export async function createCreditCardExpense(req, res) {
 
     // Verificar que la categoría existe
     const category = await models.Category.findOne({
-      where: { id: categoryId },
+      where: { id: categoryId, userId },
     });
 
     if (!category) {
@@ -100,35 +142,26 @@ export async function createCreditCardExpense(req, res) {
       description,
       totalAmount,
       installments: installments || 1,
-      purchaseDate: purchaseDate || new Date().toISOString().split("T")[0],
+      purchaseDate: purchaseDateValue,
+      firstStatementMonth:
+        parseInt(firstStatementMonth, 10) || fallbackStatementPeriod.month,
+      firstStatementYear:
+        parseInt(firstStatementYear, 10) || fallbackStatementPeriod.year,
       currency: currency || "ARS",
       creditCardId,
       categoryId,
       userId,
     });
 
-    // Calcular monto por cuota
-    const installmentAmount = (parseFloat(totalAmount) / installments).toFixed(
-      2,
-    );
-
     // Crear las cuotas
-    const installmentsData = [];
-    for (let i = 1; i <= installments; i++) {
-      const dueDate = calculateInstallmentDueDate(
-        expense.purchaseDate,
-        creditCard,
-        i,
-      );
-
-      installmentsData.push({
-        installmentNumber: i,
-        amount: installmentAmount,
-        dueDate,
-        isPaid: false,
-        expenseId: expense.id,
-      });
-    }
+    const installmentsData = buildInstallmentsData({
+      expenseId: expense.id,
+      totalAmount,
+      installments: installments || 1,
+      firstStatementMonth: expense.firstStatementMonth,
+      firstStatementYear: expense.firstStatementYear,
+      creditCard,
+    });
 
     await models.CreditCardInstallment.bulkCreate(installmentsData);
 
@@ -166,9 +199,10 @@ export async function createCreditCardExpense(req, res) {
 
 export async function getCreditCardExpenses(req, res) {
   try {
-    const { creditCardId, fromDate, toDate } = req.query;
+    const { creditCardId, fromDate, toDate, includePaid } = req.query;
+    const userId = req.user.userId;
 
-    const where = {};
+    const where = { userId };
 
     if (creditCardId) {
       where.creditCardId = creditCardId;
@@ -186,6 +220,7 @@ export async function getCreditCardExpenses(req, res) {
         {
           model: models.CreditCard,
           as: "creditCard",
+          where: { userId },
           attributes: ["id", "name", "bank", "lastFourDigits"],
         },
         {
@@ -202,7 +237,16 @@ export async function getCreditCardExpenses(req, res) {
       order: [["purchaseDate", "DESC"]],
     });
 
-    res.json({ expenses });
+    const filteredExpenses =
+      includePaid === "true"
+        ? expenses
+        : expenses.filter((expense) =>
+            (expense.installmentsList || []).some(
+              (installment) => !installment.isPaid,
+            ),
+          );
+
+    res.json({ expenses: filteredExpenses });
   } catch (err) {
     console.error("Error en getCreditCardExpenses:", err);
     res.status(500).json({ error: "Error al obtener gastos con tarjeta" });
@@ -212,19 +256,41 @@ export async function getCreditCardExpenses(req, res) {
 export async function updateCreditCardExpense(req, res) {
   try {
     const { id } = req.params;
-    const { description, categoryId } = req.body;
+    const userId = req.user.userId;
+    const {
+      description,
+      totalAmount,
+      installments,
+      purchaseDate,
+      firstStatementMonth,
+      firstStatementYear,
+      currency,
+      creditCardId,
+      categoryId,
+    } = req.body;
 
-    const expense = await models.CreditCardExpense.findOne({ where: { id } });
+    const expense = await models.CreditCardExpense.findOne({
+      where: { id, userId },
+      include: [
+        {
+          model: models.CreditCardInstallment,
+          as: "installmentsList",
+        },
+      ],
+    });
 
     if (!expense) {
       return res.status(404).json({ error: "Gasto no encontrado" });
     }
 
-    // Solo permitir editar descripción y categoría (no monto ni cuotas)
+    const hasPaidInstallments = (expense.installmentsList || []).some(
+      (installment) => installment.isPaid,
+    );
+
     if (description !== undefined) expense.description = description;
     if (categoryId !== undefined) {
       const category = await models.Category.findOne({
-        where: { id: categoryId },
+        where: { id: categoryId, userId },
       });
       if (!category) {
         return res.status(404).json({ error: "Categoría no encontrada" });
@@ -232,11 +298,105 @@ export async function updateCreditCardExpense(req, res) {
       expense.categoryId = categoryId;
     }
 
+    const structuralFieldsProvided = [
+      totalAmount,
+      installments,
+      purchaseDate,
+      firstStatementMonth,
+      firstStatementYear,
+      currency,
+      creditCardId,
+    ].some((value) => value !== undefined);
+
+    if (hasPaidInstallments && structuralFieldsProvided) {
+      return res.status(400).json({
+        error:
+          "No se pueden recalcular monto, cuotas o período inicial si ya hay cuotas pagadas",
+      });
+    }
+
+    let creditCard = null;
+
+    if (creditCardId !== undefined) {
+      creditCard = await models.CreditCard.findOne({
+        where: { id: creditCardId, userId },
+      });
+
+      if (!creditCard) {
+        return res
+          .status(404)
+          .json({ error: "Tarjeta de crédito no encontrada" });
+      }
+
+      expense.creditCardId = creditCardId;
+    } else {
+      creditCard = await models.CreditCard.findOne({
+        where: { id: expense.creditCardId, userId },
+      });
+    }
+
+    if (totalAmount !== undefined) expense.totalAmount = totalAmount;
+    if (installments !== undefined) expense.installments = installments;
+    if (purchaseDate !== undefined) expense.purchaseDate = purchaseDate;
+    if (currency !== undefined) expense.currency = currency;
+    if (firstStatementMonth !== undefined) {
+      expense.firstStatementMonth = parseInt(firstStatementMonth, 10);
+    }
+    if (firstStatementYear !== undefined) {
+      expense.firstStatementYear = parseInt(firstStatementYear, 10);
+    }
+
+    if (!expense.firstStatementMonth || !expense.firstStatementYear) {
+      const derivedPeriod = deriveStatementPeriodFromDueDate(
+        expense.installmentsList?.[0]?.dueDate || expense.purchaseDate,
+      );
+      expense.firstStatementMonth = derivedPeriod.month;
+      expense.firstStatementYear = derivedPeriod.year;
+    }
+
     await expense.save();
+
+    if (!hasPaidInstallments && structuralFieldsProvided) {
+      await models.CreditCardInstallment.destroy({
+        where: { expenseId: expense.id },
+      });
+
+      const installmentsData = buildInstallmentsData({
+        expenseId: expense.id,
+        totalAmount: expense.totalAmount,
+        installments: expense.installments,
+        firstStatementMonth: expense.firstStatementMonth,
+        firstStatementYear: expense.firstStatementYear,
+        creditCard,
+      });
+
+      await models.CreditCardInstallment.bulkCreate(installmentsData);
+    }
+
+    const updatedExpense = await models.CreditCardExpense.findOne({
+      where: { id: expense.id, userId },
+      include: [
+        {
+          model: models.CreditCardInstallment,
+          as: "installmentsList",
+          order: [["installmentNumber", "ASC"]],
+        },
+        {
+          model: models.CreditCard,
+          as: "creditCard",
+          attributes: ["id", "name", "bank", "lastFourDigits"],
+        },
+        {
+          model: models.Category,
+          as: "category",
+          attributes: ["id", "name", "type"],
+        },
+      ],
+    });
 
     res.json({
       message: "Gasto actualizado exitosamente",
-      expense,
+      expense: updatedExpense,
     });
   } catch (err) {
     console.error("Error en updateCreditCardExpense:", err);
@@ -247,8 +407,11 @@ export async function updateCreditCardExpense(req, res) {
 export async function deleteCreditCardExpense(req, res) {
   try {
     const { id } = req.params;
+    const userId = req.user.userId;
 
-    const expense = await models.CreditCardExpense.findOne({ where: { id } });
+    const expense = await models.CreditCardExpense.findOne({
+      where: { id, userId },
+    });
 
     if (!expense) {
       return res.status(404).json({ error: "Gasto no encontrado" });
@@ -269,9 +432,18 @@ export async function markInstallmentAsPaid(req, res) {
   try {
     const { id } = req.params;
     const { paidDate } = req.body;
+    const userId = req.user.userId;
 
     const installment = await models.CreditCardInstallment.findOne({
       where: { id },
+      include: [
+        {
+          model: models.CreditCardExpense,
+          as: "expense",
+          required: true,
+          where: { userId },
+        },
+      ],
     });
 
     if (!installment) {
@@ -280,6 +452,7 @@ export async function markInstallmentAsPaid(req, res) {
 
     installment.isPaid = true;
     installment.paidDate = paidDate || new Date().toISOString().split("T")[0];
+    installment.status = "paid";
 
     await installment.save();
 

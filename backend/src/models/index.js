@@ -1,3 +1,4 @@
+import { DataTypes } from "sequelize";
 import { sequelize } from "../config/db.js";
 import { User } from "./user.model.js";
 import { Category } from "./category.model.js";
@@ -241,8 +242,73 @@ export const models = {
   MortgageInstallment,
 };
 
+async function ensureColumn(tableName, columnName, definition) {
+  const queryInterface = sequelize.getQueryInterface();
+  const tableDefinition = await queryInterface.describeTable(tableName);
+
+  if (!tableDefinition[columnName]) {
+    await queryInterface.addColumn(tableName, columnName, definition);
+    console.log(`✓ Added column ${tableName}.${columnName}`);
+  }
+}
+
+async function ensureCreditCardPeriodColumns() {
+  await ensureColumn("credit_card_expenses", "first_statement_month", {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  });
+  await ensureColumn("credit_card_expenses", "first_statement_year", {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  });
+
+  await ensureColumn("credit_card_installments", "statement_month", {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  });
+  await ensureColumn("credit_card_installments", "statement_year", {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  });
+  await ensureColumn("credit_card_installments", "payment_month", {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  });
+  await ensureColumn("credit_card_installments", "payment_year", {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  });
+  await ensureColumn("credit_card_installments", "status", {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: "projected",
+  });
+
+  await ensureColumn("credit_card_payments", "statement_month", {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  });
+  await ensureColumn("credit_card_payments", "statement_year", {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  });
+  await ensureColumn("credit_card_payments", "payment_month", {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  });
+  await ensureColumn("credit_card_payments", "payment_year", {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  });
+  await ensureColumn("credit_card_payments", "covered_installment_ids", {
+    type: DataTypes.JSON,
+    allowNull: true,
+  });
+}
+
 export async function syncModels() {
   await sequelize.sync({ alter: false });
+  await ensureCreditCardPeriodColumns();
   // Crear tablas nuevas de hipotecario si no existen
   await MortgageLoan.sync();
   await MortgageInstallment.sync();

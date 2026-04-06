@@ -37,6 +37,23 @@ export const CreditCardExpense = sequelize.define(
       defaultValue: DataTypes.NOW,
       comment: "Fecha de la compra",
     },
+    firstStatementMonth: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      validate: {
+        min: 1,
+        max: 12,
+      },
+      comment: "Mes en que entra la primera cuota o consumo al resumen",
+    },
+    firstStatementYear: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      validate: {
+        min: 2000,
+      },
+      comment: "Año en que entra la primera cuota o consumo al resumen",
+    },
     currency: {
       type: DataTypes.STRING(3),
       allowNull: false,
@@ -75,5 +92,5 @@ export const CreditCardExpense = sequelize.define(
     tableName: "credit_card_expenses",
     timestamps: true,
     underscored: true,
-  }
+  },
 );

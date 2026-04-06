@@ -22,6 +22,40 @@ export const CreditCardPayment = sequelize.define(
       allowNull: false,
       comment: "Fecha en que se realizó el pago",
     },
+    statementMonth: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      validate: {
+        min: 1,
+        max: 12,
+      },
+      comment: "Mes del resumen que cubre el pago",
+    },
+    statementYear: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      validate: {
+        min: 2000,
+      },
+      comment: "Año del resumen que cubre el pago",
+    },
+    paymentMonth: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      validate: {
+        min: 1,
+        max: 12,
+      },
+      comment: "Mes financiero al que corresponde el pago",
+    },
+    paymentYear: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      validate: {
+        min: 2000,
+      },
+      comment: "Año financiero al que corresponde el pago",
+    },
     currency: {
       type: DataTypes.STRING(3),
       allowNull: false,
@@ -32,6 +66,11 @@ export const CreditCardPayment = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: true,
       comment: "Notas adicionales sobre el pago",
+    },
+    coveredInstallmentIds: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: "IDs de cuotas cubiertas por este pago",
     },
     creditCardId: {
       type: DataTypes.INTEGER.UNSIGNED,
@@ -66,5 +105,5 @@ export const CreditCardPayment = sequelize.define(
     tableName: "credit_card_payments",
     timestamps: true,
     underscored: true,
-  }
+  },
 );

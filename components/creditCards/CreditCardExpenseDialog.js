@@ -15,6 +15,51 @@ import {
 } from "@mui/material";
 import { CloseOutlined } from "@mui/icons-material";
 
+const MONTHS = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
+
+function deriveFirstStatementPeriod(expense) {
+  if (expense?.firstStatementMonth && expense?.firstStatementYear) {
+    return {
+      month: String(expense.firstStatementMonth),
+      year: String(expense.firstStatementYear),
+    };
+  }
+
+  const firstInstallment = expense?.installmentsList?.[0];
+  if (!firstInstallment?.dueDate) {
+    const today = new Date();
+    return {
+      month: String(today.getMonth() + 1),
+      year: String(today.getFullYear()),
+    };
+  }
+
+  const dueDate = new Date(`${firstInstallment.dueDate}T00:00:00`);
+  const statementDate = new Date(
+    dueDate.getFullYear(),
+    dueDate.getMonth() - 1,
+    1,
+  );
+
+  return {
+    month: String(statementDate.getMonth() + 1),
+    year: String(statementDate.getFullYear()),
+  };
+}
+
 export default function CreditCardExpenseDialog({
   open,
   onClose,
@@ -28,6 +73,8 @@ export default function CreditCardExpenseDialog({
     totalAmount: "",
     installments: "1",
     purchaseDate: new Date().toISOString().split("T")[0],
+    firstStatementMonth: String(new Date().getMonth() + 1),
+    firstStatementYear: String(new Date().getFullYear()),
     currency: "ARS",
     creditCardId: "",
     categoryId: "",
@@ -36,17 +83,28 @@ export default function CreditCardExpenseDialog({
 
   useEffect(() => {
     if (expense) {
-      // Modo edición: solo descripción y categoría
+      const firstStatement = deriveFirstStatementPeriod(expense);
       setFormData({
         description: expense.description || "",
+        totalAmount: expense.totalAmount || "",
+        installments: String(expense.installments || 1),
+        purchaseDate:
+          expense.purchaseDate || new Date().toISOString().split("T")[0],
+        firstStatementMonth: firstStatement.month,
+        firstStatementYear: firstStatement.year,
+        currency: expense.currency || "ARS",
+        creditCardId: expense.creditCardId || expense.creditCard?.id || "",
         categoryId: expense.categoryId || "",
       });
     } else {
+      const today = new Date();
       setFormData({
         description: "",
         totalAmount: "",
         installments: "1",
-        purchaseDate: new Date().toISOString().split("T")[0],
+        purchaseDate: today.toISOString().split("T")[0],
+        firstStatementMonth: String(today.getMonth() + 1),
+        firstStatementYear: String(today.getFullYear()),
         currency: "ARS",
         creditCardId: creditCards.length > 0 ? creditCards[0].id : "",
         categoryId: "",
@@ -70,23 +128,28 @@ export default function CreditCardExpenseDialog({
       newErrors.description = "La descripción es requerida";
     }
 
-    if (!expense) {
-      // Validaciones solo para creación
-      if (!formData.totalAmount || parseFloat(formData.totalAmount) <= 0) {
-        newErrors.totalAmount = "Ingrese un monto válido mayor a 0";
-      }
+    if (!formData.totalAmount || parseFloat(formData.totalAmount) <= 0) {
+      newErrors.totalAmount = "Ingrese un monto válido mayor a 0";
+    }
 
-      if (!formData.installments || parseInt(formData.installments) < 1) {
-        newErrors.installments = "Debe ser al menos 1 cuota";
-      }
+    if (!formData.installments || parseInt(formData.installments, 10) < 1) {
+      newErrors.installments = "Debe ser al menos 1 cuota";
+    }
 
-      if (!formData.creditCardId) {
-        newErrors.creditCardId = "Seleccione una tarjeta";
-      }
+    if (!formData.creditCardId) {
+      newErrors.creditCardId = "Seleccione una tarjeta";
+    }
 
-      if (!formData.purchaseDate) {
-        newErrors.purchaseDate = "La fecha es requerida";
-      }
+    if (!formData.purchaseDate) {
+      newErrors.purchaseDate = "La fecha es requerida";
+    }
+
+    if (!formData.firstStatementMonth) {
+      newErrors.firstStatementMonth = "Seleccione el mes del primer resumen";
+    }
+
+    if (!formData.firstStatementYear) {
+      newErrors.firstStatementYear = "Ingrese el año del primer resumen";
     }
 
     setErrors(newErrors);
@@ -96,25 +159,17 @@ export default function CreditCardExpenseDialog({
   const handleSubmit = () => {
     if (!validate()) return;
 
-    if (expense) {
-      // Edición: solo descripción y categoría
-      onSave({
-        description: formData.description.trim(),
-        categoryId: formData.categoryId || null,
-      });
-    } else {
-      // Creación: todos los campos
-      const dataToSend = {
-        description: formData.description.trim(),
-        totalAmount: parseFloat(formData.totalAmount),
-        installments: parseInt(formData.installments),
-        purchaseDate: formData.purchaseDate,
-        currency: formData.currency,
-        creditCardId: formData.creditCardId,
-        categoryId: formData.categoryId || null,
-      };
-      onSave(dataToSend);
-    }
+    onSave({
+      description: formData.description.trim(),
+      totalAmount: parseFloat(formData.totalAmount),
+      installments: parseInt(formData.installments, 10),
+      purchaseDate: formData.purchaseDate,
+      firstStatementMonth: parseInt(formData.firstStatementMonth, 10),
+      firstStatementYear: parseInt(formData.firstStatementYear, 10),
+      currency: formData.currency,
+      creditCardId: formData.creditCardId,
+      categoryId: formData.categoryId || null,
+    });
   };
 
   const installmentAmount =
@@ -154,8 +209,8 @@ export default function CreditCardExpenseDialog({
       <DialogContent dividers>
         {expense && (
           <Alert severity="info" sx={{ mb: 2.5 }}>
-            Solo se puede editar la descripción y categoría. El monto y cuotas
-            no pueden modificarse.
+            Si el gasto ya tiene cuotas pagadas, el backend bloqueará cambios
+            que obliguen a recalcular el plan de cuotas.
           </Alert>
         )}
 
@@ -170,86 +225,116 @@ export default function CreditCardExpenseDialog({
           sx={{ mb: 2.5 }}
         />
 
-        {!expense && (
-          <>
-            <TextField
-              fullWidth
-              select
-              label="Tarjeta"
-              name="creditCardId"
-              value={formData.creditCardId}
-              onChange={handleChange}
-              error={!!errors.creditCardId}
-              helperText={errors.creditCardId}
-              sx={{ mb: 2.5 }}
-            >
-              {creditCards.length === 0 ? (
-                <MenuItem disabled>No hay tarjetas disponibles</MenuItem>
-              ) : (
-                creditCards.map((card) => (
-                  <MenuItem key={card.id} value={card.id}>
-                    {card.name} - *{card.lastFourDigits} ({card.bank})
-                  </MenuItem>
-                ))
-              )}
-            </TextField>
+        <TextField
+          fullWidth
+          select
+          label="Tarjeta"
+          name="creditCardId"
+          value={formData.creditCardId}
+          onChange={handleChange}
+          error={!!errors.creditCardId}
+          helperText={errors.creditCardId}
+          sx={{ mb: 2.5 }}
+        >
+          {creditCards.length === 0 ? (
+            <MenuItem disabled>No hay tarjetas disponibles</MenuItem>
+          ) : (
+            creditCards.map((card) => (
+              <MenuItem key={card.id} value={card.id}>
+                {card.name} - *{card.lastFourDigits} ({card.bank})
+              </MenuItem>
+            ))
+          )}
+        </TextField>
 
-            <TextField
-              fullWidth
-              label="Monto total"
-              name="totalAmount"
-              type="number"
-              value={formData.totalAmount}
-              onChange={handleChange}
-              error={!!errors.totalAmount}
-              helperText={errors.totalAmount}
-              inputProps={{ min: 0, step: 0.01 }}
-              sx={{ mb: 2.5 }}
-            />
+        <TextField
+          fullWidth
+          label="Monto total"
+          name="totalAmount"
+          type="number"
+          value={formData.totalAmount}
+          onChange={handleChange}
+          error={!!errors.totalAmount}
+          helperText={errors.totalAmount}
+          inputProps={{ min: 0, step: 0.01 }}
+          sx={{ mb: 2.5 }}
+        />
 
-            <TextField
-              fullWidth
-              label="Cantidad de cuotas"
-              name="installments"
-              type="number"
-              value={formData.installments}
-              onChange={handleChange}
-              error={!!errors.installments}
-              helperText={
-                errors.installments ||
-                `Cada cuota será de: ${formData.currency} ${installmentAmount}`
-              }
-              inputProps={{ min: 1, step: 1 }}
-              sx={{ mb: 2.5 }}
-            />
+        <TextField
+          fullWidth
+          label="Cantidad de cuotas"
+          name="installments"
+          type="number"
+          value={formData.installments}
+          onChange={handleChange}
+          error={!!errors.installments}
+          helperText={
+            errors.installments ||
+            `Cada cuota será de: ${formData.currency} ${installmentAmount}`
+          }
+          inputProps={{ min: 1, step: 1 }}
+          sx={{ mb: 2.5 }}
+        />
 
-            <TextField
-              fullWidth
-              label="Fecha de compra"
-              name="purchaseDate"
-              type="date"
-              value={formData.purchaseDate}
-              onChange={handleChange}
-              error={!!errors.purchaseDate}
-              helperText={errors.purchaseDate}
-              InputLabelProps={{ shrink: true }}
-              sx={{ mb: 2.5 }}
-            />
+        <TextField
+          fullWidth
+          label="Fecha de compra"
+          name="purchaseDate"
+          type="date"
+          value={formData.purchaseDate}
+          onChange={handleChange}
+          error={!!errors.purchaseDate}
+          helperText={errors.purchaseDate}
+          InputLabelProps={{ shrink: true }}
+          sx={{ mb: 2.5 }}
+        />
 
-            <TextField
-              fullWidth
-              select
-              label="Moneda"
-              name="currency"
-              value={formData.currency}
-              onChange={handleChange}
-              sx={{ mb: 2.5 }}
-            >
-              <MenuItem value="ARS">ARS (Pesos)</MenuItem>
-              <MenuItem value="USD">USD (Dólares)</MenuItem>
-            </TextField>
-          </>
-        )}
+        <TextField
+          fullWidth
+          select
+          label="Moneda"
+          name="currency"
+          value={formData.currency}
+          onChange={handleChange}
+          sx={{ mb: 2.5 }}
+        >
+          <MenuItem value="ARS">ARS (Pesos)</MenuItem>
+          <MenuItem value="USD">USD (Dólares)</MenuItem>
+        </TextField>
+
+        <TextField
+          fullWidth
+          select
+          label="Primer resumen"
+          name="firstStatementMonth"
+          value={formData.firstStatementMonth}
+          onChange={handleChange}
+          error={!!errors.firstStatementMonth}
+          helperText={
+            errors.firstStatementMonth ||
+            "Mes en que entra la primera cuota o consumo"
+          }
+          sx={{ mb: 2.5 }}
+        >
+          {MONTHS.map((monthName, index) => (
+            <MenuItem key={monthName} value={String(index + 1)}>
+              {monthName}
+            </MenuItem>
+          ))}
+        </TextField>
+
+        <TextField
+          fullWidth
+          label="Año del primer resumen"
+          name="firstStatementYear"
+          type="number"
+          value={formData.firstStatementYear}
+          onChange={handleChange}
+          error={!!errors.firstStatementYear}
+          helperText={errors.firstStatementYear}
+          inputProps={{ min: 2024, step: 1 }}
+          sx={{ mb: 2.5 }}
+        />
 
         <TextField
           fullWidth

@@ -1,5 +1,9 @@
 import { models } from "../models/index.js";
 import { Op } from "sequelize";
+import {
+  getPaymentPeriodForInstallment,
+  getPeriodKey,
+} from "../utils/creditCardPeriods.js";
 
 export async function getPendingInstallments(req, res) {
   try {
@@ -39,8 +43,32 @@ export async function getPendingInstallments(req, res) {
           ],
         },
       ],
-      order: [["dueDate", "ASC"]],
+      order: [
+        ["paymentYear", "ASC"],
+        ["paymentMonth", "ASC"],
+        ["dueDate", "ASC"],
+      ],
     });
+
+    const payments = await models.CreditCardPayment.findAll({
+      where: { userId },
+      attributes: ["creditCardId", "paymentMonth", "paymentYear", "currency"],
+    });
+
+    const paidPeriods = new Set(
+      payments
+        .filter(
+          (payment) =>
+            payment.paymentMonth && payment.paymentYear && payment.currency,
+        )
+        .map(
+          (payment) =>
+            `${payment.creditCardId}-${getPeriodKey(
+              payment.paymentMonth,
+              payment.paymentYear,
+            )}-${payment.currency}`,
+        ),
+    );
 
     // Obtener débitos automáticos activos
     const recurringCharges = await models.CreditCardRecurringCharge.findAll({
@@ -59,16 +87,14 @@ export async function getPendingInstallments(req, res) {
 
     // Agrupar por mes
     const grouped = installments.reduce((acc, installment) => {
-      const dueDate = new Date(installment.dueDate);
-      const monthKey = `${dueDate.getFullYear()}-${String(
-        dueDate.getMonth() + 1,
-      ).padStart(2, "0")}`;
+      const paymentPeriod = getPaymentPeriodForInstallment(installment);
+      const monthKey = getPeriodKey(paymentPeriod.month, paymentPeriod.year);
 
       if (!acc[monthKey]) {
         acc[monthKey] = {
           month: monthKey,
-          year: dueDate.getFullYear(),
-          monthNumber: dueDate.getMonth() + 1,
+          year: paymentPeriod.year,
+          monthNumber: paymentPeriod.month,
           installments: [],
           totalARS: 0,
           totalUSD: 0,
@@ -86,6 +112,8 @@ export async function getPendingInstallments(req, res) {
         amount: amount,
         currency: currency,
         dueDate: installment.dueDate,
+        paymentMonth: paymentPeriod.month,
+        paymentYear: paymentPeriod.year,
         cardName: installment.expense.creditCard.name,
         cardBank: installment.expense.creditCard.bank,
         cardBrand: installment.expense.creditCard.brand,
@@ -104,20 +132,26 @@ export async function getPendingInstallments(req, res) {
       return acc;
     }, {});
 
-    // Agregar débitos automáticos a cada mes separados por moneda
-    const recurringChargesARS = recurringCharges
-      .filter((c) => !c.currency || c.currency === "ARS")
-      .reduce((sum, charge) => sum + parseFloat(charge.amount), 0);
-
-    const recurringChargesUSD = recurringCharges
-      .filter((c) => c.currency === "USD")
-      .reduce((sum, charge) => sum + parseFloat(charge.amount), 0);
-
     Object.keys(grouped).forEach((monthKey) => {
-      grouped[monthKey].recurringChargesARS = recurringChargesARS;
-      grouped[monthKey].recurringChargesUSD = recurringChargesUSD;
-      grouped[monthKey].totalARS += recurringChargesARS;
-      grouped[monthKey].totalUSD += recurringChargesUSD;
+      const monthGroup = grouped[monthKey];
+
+      recurringCharges.forEach((charge) => {
+        const currency = charge.currency || "ARS";
+        const paidKey = `${charge.creditCardId}-${monthKey}-${currency}`;
+
+        if (paidPeriods.has(paidKey)) {
+          return;
+        }
+
+        const amount = parseFloat(charge.amount);
+        if (currency === "USD") {
+          monthGroup.recurringChargesUSD += amount;
+          monthGroup.totalUSD += amount;
+        } else {
+          monthGroup.recurringChargesARS += amount;
+          monthGroup.totalARS += amount;
+        }
+      });
     });
 
     // Convertir a array y ordenar por mes
@@ -174,6 +208,7 @@ export async function markInstallmentAsPaid(req, res) {
     await installment.update({
       isPaid: true,
       paidDate,
+      status: "paid",
     });
 
     res.json({

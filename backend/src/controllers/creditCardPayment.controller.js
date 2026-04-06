@@ -1,58 +1,124 @@
 import { models } from "../models/index.js";
 import { Op } from "sequelize";
+import {
+  addMonthsToPeriod,
+  getPaymentPeriodForInstallment,
+  getPeriodKey,
+} from "../utils/creditCardPeriods.js";
 
-// Obtener proyecciones de gastos con tarjeta
+function serializeInstallment(installment) {
+  return {
+    id: installment.id,
+    amount: parseFloat(installment.amount),
+    currency: installment.expense.currency || "ARS",
+    dueDate: installment.dueDate,
+    description: installment.expense.description,
+    installmentNumber: installment.installmentNumber,
+    totalInstallments: installment.expense.installments,
+    cardName: installment.expense.creditCard.name,
+    cardBank: installment.expense.creditCard.bank,
+    cardBrand: installment.expense.creditCard.brand,
+    categoryName: installment.expense.category?.name || "Sin categoría",
+  };
+}
+
+async function getOpenInstallmentsForPeriod({
+  userId,
+  creditCardId,
+  month,
+  year,
+  currency,
+}) {
+  const installments = await models.CreditCardInstallment.findAll({
+    where: { isPaid: false },
+    include: [
+      {
+        model: models.CreditCardExpense,
+        as: "expense",
+        required: true,
+        where: {
+          userId,
+          ...(creditCardId ? { creditCardId } : {}),
+          ...(currency ? { currency } : {}),
+        },
+        include: [
+          {
+            model: models.CreditCard,
+            as: "creditCard",
+            attributes: ["id", "name", "bank", "brand", "lastFourDigits"],
+          },
+          {
+            model: models.Category,
+            as: "category",
+            attributes: ["id", "name", "type"],
+          },
+        ],
+      },
+    ],
+    order: [["dueDate", "ASC"]],
+  });
+
+  return installments.filter((installment) => {
+    const paymentPeriod = getPaymentPeriodForInstallment(installment);
+    return paymentPeriod.month === month && paymentPeriod.year === year;
+  });
+}
+
+async function getPaidPeriodSet({ userId }) {
+  const payments = await models.CreditCardPayment.findAll({
+    where: { userId },
+    attributes: ["creditCardId", "paymentMonth", "paymentYear", "currency"],
+  });
+
+  return new Set(
+    payments
+      .filter(
+        (payment) =>
+          payment.creditCardId &&
+          payment.paymentMonth &&
+          payment.paymentYear &&
+          payment.currency,
+      )
+      .map(
+        (payment) =>
+          `${payment.creditCardId}-${getPeriodKey(
+            payment.paymentMonth,
+            payment.paymentYear,
+          )}-${payment.currency}`,
+      ),
+  );
+}
+
 export async function getProjections(req, res) {
   try {
-    const { month, year, creditCardId } = req.query;
+    const { month, year, creditCardId, currency } = req.query;
+    const userId = req.user.userId;
 
     const currentDate = new Date();
-    const targetMonth = month ? parseInt(month) - 1 : currentDate.getMonth();
-    const targetYear = year ? parseInt(year) : currentDate.getFullYear();
+    const nextMonthDate = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth() + 1,
+      1,
+    );
+    const targetMonth = month
+      ? parseInt(month, 10)
+      : nextMonthDate.getMonth() + 1;
+    const targetYear = year ? parseInt(year, 10) : nextMonthDate.getFullYear();
 
-    const startDate = new Date(targetYear, targetMonth, 1)
-      .toISOString()
-      .split("T")[0];
-    const endDate = new Date(targetYear, targetMonth + 1, 0)
-      .toISOString()
-      .split("T")[0];
-
-    const where = {
-      dueDate: {
-        [Op.between]: [startDate, endDate],
-      },
-      isPaid: false,
-    };
-
-    // Obtener cuotas pendientes para el mes
-    const installments = await models.CreditCardInstallment.findAll({
-      where,
-      include: [
-        {
-          model: models.CreditCardExpense,
-          as: "expense",
-          where: creditCardId ? { creditCardId } : {},
-          include: [
-            {
-              model: models.CreditCard,
-              as: "creditCard",
-              attributes: ["id", "name", "bank", "lastFourDigits"],
-            },
-            {
-              model: models.Category,
-              as: "category",
-              attributes: ["id", "name", "type"],
-            },
-          ],
-        },
-      ],
-      order: [["dueDate", "ASC"]],
+    const installments = await getOpenInstallmentsForPeriod({
+      userId,
+      creditCardId,
+      month: targetMonth,
+      year: targetYear,
+      currency,
     });
 
-    // Obtener débitos automáticos activos
-    const recurringChargesWhere = { isActive: true };
+    const recurringChargesWhere = { userId, isActive: true };
     if (creditCardId) {
       recurringChargesWhere.creditCardId = creditCardId;
+    }
+    if (currency) {
+      recurringChargesWhere.currency = currency;
     }
 
     const recurringCharges = await models.CreditCardRecurringCharge.findAll({
@@ -71,26 +137,59 @@ export async function getProjections(req, res) {
       ],
     });
 
-    // Calcular totales
-    const installmentsTotal = installments.reduce(
-      (sum, inst) => sum + parseFloat(inst.amount),
-      0
-    );
-    const recurringChargesTotal = recurringCharges.reduce(
-      (sum, charge) => sum + parseFloat(charge.amount),
-      0
-    );
+    const paidPeriods = await getPaidPeriodSet({ userId });
+    const filteredRecurringCharges = recurringCharges.filter((charge) => {
+      const paidKey = `${charge.creditCardId}-${getPeriodKey(
+        targetMonth,
+        targetYear,
+      )}-${charge.currency || "ARS"}`;
+      return !paidPeriods.has(paidKey);
+    });
+
+    const totals = {
+      installmentsARS: 0,
+      installmentsUSD: 0,
+      recurringChargesARS: 0,
+      recurringChargesUSD: 0,
+    };
+
+    installments.forEach((installment) => {
+      const amount = parseFloat(installment.amount);
+      const installmentCurrency = installment.expense.currency || "ARS";
+      if (installmentCurrency === "USD") {
+        totals.installmentsUSD += amount;
+      } else {
+        totals.installmentsARS += amount;
+      }
+    });
+
+    filteredRecurringCharges.forEach((charge) => {
+      const amount = parseFloat(charge.amount);
+      const chargeCurrency = charge.currency || "ARS";
+      if (chargeCurrency === "USD") {
+        totals.recurringChargesUSD += amount;
+      } else {
+        totals.recurringChargesARS += amount;
+      }
+    });
 
     res.json({
       projections: {
-        month: targetMonth + 1,
+        month: targetMonth,
         year: targetYear,
-        installments,
-        recurringCharges,
+        installments: installments.map(serializeInstallment),
+        recurringCharges: filteredRecurringCharges,
         totals: {
-          installments: installmentsTotal.toFixed(2),
-          recurringCharges: recurringChargesTotal.toFixed(2),
-          total: (installmentsTotal + recurringChargesTotal).toFixed(2),
+          installmentsARS: totals.installmentsARS.toFixed(2),
+          installmentsUSD: totals.installmentsUSD.toFixed(2),
+          recurringChargesARS: totals.recurringChargesARS.toFixed(2),
+          recurringChargesUSD: totals.recurringChargesUSD.toFixed(2),
+          totalARS: (
+            totals.installmentsARS + totals.recurringChargesARS
+          ).toFixed(2),
+          totalUSD: (
+            totals.installmentsUSD + totals.recurringChargesUSD
+          ).toFixed(2),
         },
       },
     });
@@ -100,7 +199,6 @@ export async function getProjections(req, res) {
   }
 }
 
-// Crear pago de resumen de tarjeta
 export async function createCreditCardPayment(req, res) {
   try {
     const {
@@ -110,13 +208,20 @@ export async function createCreditCardPayment(req, res) {
       notes,
       creditCardId,
       paymentMethodId,
-      installmentIds,
+      paymentMonth,
+      paymentYear,
     } = req.body;
     const userId = req.user.userId;
 
-    if (!amount || !creditCardId) {
+    if (
+      !amount ||
+      !creditCardId ||
+      !paymentMonth ||
+      !paymentYear ||
+      !currency
+    ) {
       return res.status(400).json({
-        error: "Monto y tarjeta son requeridos",
+        error: "Monto, tarjeta, moneda y período de pago son requeridos",
       });
     }
 
@@ -124,9 +229,8 @@ export async function createCreditCardPayment(req, res) {
       return res.status(400).json({ error: "El monto debe ser mayor a 0" });
     }
 
-    // Verificar que la tarjeta existe
     const creditCard = await models.CreditCard.findOne({
-      where: { id: creditCardId },
+      where: { id: creditCardId, userId },
     });
 
     if (!creditCard) {
@@ -135,7 +239,53 @@ export async function createCreditCardPayment(req, res) {
         .json({ error: "Tarjeta de crédito no encontrada" });
     }
 
-    // Buscar o crear categoría "Tarjetas de credito"
+    const normalizedPaymentMonth = parseInt(paymentMonth, 10);
+    const normalizedPaymentYear = parseInt(paymentYear, 10);
+    const statementPeriod = addMonthsToPeriod(
+      normalizedPaymentMonth,
+      normalizedPaymentYear,
+      -1,
+    );
+
+    const existingPayment = await models.CreditCardPayment.findOne({
+      where: {
+        creditCardId,
+        userId,
+        currency,
+        paymentMonth: normalizedPaymentMonth,
+        paymentYear: normalizedPaymentYear,
+      },
+    });
+
+    if (existingPayment) {
+      return res.status(400).json({
+        error: "Ya existe un pago registrado para esa tarjeta, mes y moneda",
+      });
+    }
+
+    const installmentsToPay = await getOpenInstallmentsForPeriod({
+      userId,
+      creditCardId,
+      month: normalizedPaymentMonth,
+      year: normalizedPaymentYear,
+      currency,
+    });
+
+    const recurringCharges = await models.CreditCardRecurringCharge.findAll({
+      where: {
+        userId,
+        creditCardId,
+        isActive: true,
+        currency,
+      },
+    });
+
+    if (installmentsToPay.length === 0 && recurringCharges.length === 0) {
+      return res.status(400).json({
+        error: "No hay consumos pendientes para ese período",
+      });
+    }
+
     let category = await models.Category.findOne({
       where: {
         name: "Tarjetas de credito",
@@ -152,43 +302,48 @@ export async function createCreditCardPayment(req, res) {
       });
     }
 
-    // Crear la transacción de egreso que afecta el balance
     const transaction = await models.Transaction.create({
       amount,
       date: paymentDate || new Date().toISOString().split("T")[0],
       description: `Pago ${creditCard.name} (${creditCard.bank})`,
       type: "Egreso",
-      currency: currency || "ARS",
+      currency,
       categoryId: category.id,
       paymentMethodId: paymentMethodId || null,
       userId,
     });
 
-    // Crear el registro de pago de tarjeta
     const payment = await models.CreditCardPayment.create({
       amount,
       paymentDate: paymentDate || new Date().toISOString().split("T")[0],
-      currency: currency || "ARS",
+      statementMonth: statementPeriod.month,
+      statementYear: statementPeriod.year,
+      paymentMonth: normalizedPaymentMonth,
+      paymentYear: normalizedPaymentYear,
+      currency,
       notes: notes || null,
+      coveredInstallmentIds: installmentsToPay.map(
+        (installment) => installment.id,
+      ),
       creditCardId,
       transactionId: transaction.id,
       userId,
     });
 
-    // Marcar cuotas como pagadas si se proporcionaron
-    if (installmentIds && installmentIds.length > 0) {
+    if (installmentsToPay.length > 0) {
       await models.CreditCardInstallment.update(
         {
           isPaid: true,
           paidDate: paymentDate || new Date().toISOString().split("T")[0],
+          status: "paid",
         },
         {
           where: {
             id: {
-              [Op.in]: installmentIds,
+              [Op.in]: installmentsToPay.map((installment) => installment.id),
             },
           },
-        }
+        },
       );
     }
 
@@ -203,12 +358,12 @@ export async function createCreditCardPayment(req, res) {
   }
 }
 
-// Obtener pagos de tarjeta
 export async function getCreditCardPayments(req, res) {
   try {
     const { creditCardId, fromDate, toDate } = req.query;
+    const userId = req.user.userId;
 
-    const where = {};
+    const where = { userId };
 
     if (creditCardId) {
       where.creditCardId = creditCardId;
@@ -244,13 +399,13 @@ export async function getCreditCardPayments(req, res) {
   }
 }
 
-// Obtener resumen de deuda por tarjeta
 export async function getCreditCardSummary(req, res) {
   try {
     const { id } = req.params;
+    const userId = req.user.userId;
 
     const creditCard = await models.CreditCard.findOne({
-      where: { id },
+      where: { id, userId },
     });
 
     if (!creditCard) {
@@ -259,41 +414,38 @@ export async function getCreditCardSummary(req, res) {
         .json({ error: "Tarjeta de crédito no encontrada" });
     }
 
-    // Obtener cuotas pendientes
     const pendingInstallments = await models.CreditCardInstallment.findAll({
       where: { isPaid: false },
       include: [
         {
           model: models.CreditCardExpense,
           as: "expense",
-          where: { creditCardId: id },
+          where: { creditCardId: id, userId },
           attributes: ["id", "description", "totalAmount", "currency"],
         },
       ],
       order: [["dueDate", "ASC"]],
     });
 
-    // Obtener débitos recurrentes activos
     const activeRecurringCharges =
       await models.CreditCardRecurringCharge.findAll({
         where: {
           creditCardId: id,
+          userId,
           isActive: true,
         },
       });
 
-    // Calcular totales
     const totalPendingDebt = pendingInstallments.reduce(
       (sum, inst) => sum + parseFloat(inst.amount),
-      0
+      0,
     );
 
     const monthlyRecurringTotal = activeRecurringCharges.reduce(
       (sum, charge) => sum + parseFloat(charge.amount),
-      0
+      0,
     );
 
-    // Próximo vencimiento
     const nextDueInstallment = pendingInstallments[0] || null;
 
     res.json({
@@ -313,43 +465,49 @@ export async function getCreditCardSummary(req, res) {
   }
 }
 
-// Eliminar pago de tarjeta
 export async function deleteCreditCardPayment(req, res) {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
-
-    console.log(
-      `[DELETE PAYMENT] Intentando eliminar pago ID: ${id}, Usuario: ${userId}`
-    );
 
     const payment = await models.CreditCardPayment.findOne({
       where: { id, userId },
     });
 
     if (!payment) {
-      console.log(`[DELETE PAYMENT] Pago no encontrado: ID ${id}`);
       return res.status(404).json({ error: "Pago no encontrado" });
     }
 
     const transactionId = payment.transactionId;
-    console.log(
-      `[DELETE PAYMENT] Pago encontrado. Transaction ID: ${transactionId}`
-    );
+    const coveredInstallmentIds = Array.isArray(payment.coveredInstallmentIds)
+      ? payment.coveredInstallmentIds
+      : [];
 
-    // Primero eliminar el pago
+    if (coveredInstallmentIds.length > 0) {
+      await models.CreditCardInstallment.update(
+        {
+          isPaid: false,
+          paidDate: null,
+          status: "projected",
+        },
+        {
+          where: {
+            id: {
+              [Op.in]: coveredInstallmentIds,
+            },
+          },
+        },
+      );
+    }
+
     await payment.destroy();
-    console.log(`[DELETE PAYMENT] Pago eliminado de la base de datos`);
 
-    // Luego eliminar la transacción asociada si existe
     if (transactionId) {
       await models.Transaction.destroy({
         where: { id: transactionId },
       });
-      console.log(`[DELETE PAYMENT] Transacción ${transactionId} eliminada`);
     }
 
-    console.log(`[DELETE PAYMENT] Operación completada exitosamente`);
     res.json({ message: "Pago eliminado exitosamente" });
   } catch (err) {
     console.error("Error en deleteCreditCardPayment:", err);

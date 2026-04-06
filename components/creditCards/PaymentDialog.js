@@ -13,8 +13,34 @@ import {
   Alert,
   Box,
   Typography,
+  CircularProgress,
 } from "@mui/material";
 import { CloseOutlined } from "@mui/icons-material";
+import paymentService from "@/services/creditCardPayment.service";
+
+const MONTHS = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
+
+function getNextMonthPeriod() {
+  const date = new Date();
+  const nextMonthDate = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+  return {
+    month: String(nextMonthDate.getMonth() + 1),
+    year: String(nextMonthDate.getFullYear()),
+  };
+}
 
 export default function PaymentDialog({
   open,
@@ -30,36 +56,76 @@ export default function PaymentDialog({
     currency: "ARS",
     notes: "",
     creditCardId: "",
+    paymentMonth: getNextMonthPeriod().month,
+    paymentYear: getNextMonthPeriod().year,
     paymentMethodId: "",
-    installmentIds: [],
   });
   const [errors, setErrors] = useState({});
+  const [projectionData, setProjectionData] = useState(null);
+  const [projectionLoading, setProjectionLoading] = useState(false);
 
   useEffect(() => {
-    if (projection) {
-      // Si hay proyección, prellenar con los datos
-      setFormData({
-        amount: projection.total || "",
-        paymentDate: new Date().toISOString().split("T")[0],
-        currency: "ARS",
-        notes: "",
-        creditCardId: projection.creditCardId || "",
-        paymentMethodId: paymentMethods.length > 0 ? paymentMethods[0].id : "",
-        installmentIds: projection.installments?.map((inst) => inst.id) || [],
-      });
-    } else {
-      setFormData({
-        amount: "",
-        paymentDate: new Date().toISOString().split("T")[0],
-        currency: "ARS",
-        notes: "",
-        creditCardId: creditCards.length > 0 ? creditCards[0].id : "",
-        paymentMethodId: paymentMethods.length > 0 ? paymentMethods[0].id : "",
-        installmentIds: [],
-      });
-    }
+    const nextPeriod = getNextMonthPeriod();
+    setFormData({
+      amount: "",
+      paymentDate: new Date().toISOString().split("T")[0],
+      currency: "ARS",
+      notes: "",
+      creditCardId: projection?.creditCardId || creditCards[0]?.id || "",
+      paymentMonth: nextPeriod.month,
+      paymentYear: nextPeriod.year,
+      paymentMethodId: paymentMethods.length > 0 ? paymentMethods[0].id : "",
+    });
+    setProjectionData(null);
     setErrors({});
   }, [projection, open, creditCards, paymentMethods]);
+
+  useEffect(() => {
+    const loadProjection = async () => {
+      if (
+        !open ||
+        !formData.creditCardId ||
+        !formData.paymentMonth ||
+        !formData.paymentYear
+      ) {
+        setProjectionData(null);
+        return;
+      }
+
+      setProjectionLoading(true);
+      try {
+        const projection = await paymentService.getProjections({
+          creditCardId: formData.creditCardId,
+          month: formData.paymentMonth,
+          year: formData.paymentYear,
+          currency: formData.currency,
+        });
+
+        setProjectionData(projection);
+        const totalByCurrency =
+          formData.currency === "USD"
+            ? projection?.totals?.totalUSD
+            : projection?.totals?.totalARS;
+
+        setFormData((prev) => ({
+          ...prev,
+          amount: totalByCurrency || "0.00",
+        }));
+      } catch (error) {
+        setProjectionData(null);
+      } finally {
+        setProjectionLoading(false);
+      }
+    };
+
+    loadProjection();
+  }, [
+    open,
+    formData.creditCardId,
+    formData.paymentMonth,
+    formData.paymentYear,
+    formData.currency,
+  ]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -97,8 +163,9 @@ export default function PaymentDialog({
       currency: formData.currency,
       notes: formData.notes.trim() || null,
       creditCardId: formData.creditCardId,
+      paymentMonth: parseInt(formData.paymentMonth, 10),
+      paymentYear: parseInt(formData.paymentYear, 10),
       paymentMethodId: formData.paymentMethodId || null,
-      installmentIds: formData.installmentIds,
     };
 
     onSave(dataToSend);
@@ -121,31 +188,13 @@ export default function PaymentDialog({
 
       <DialogContent dividers>
         <Alert severity="info" sx={{ mb: 2.5 }}>
-          Este pago se registrará como egreso y afectará el saldo de tu cuenta.
+          Este pago cubrirá el período elegido para la tarjeta y se registrará
+          como egreso en tus transacciones.
         </Alert>
 
-        {projection && (
-          <Box
-            sx={{
-              mb: 2.5,
-              p: 2,
-              bgcolor: "background.default",
-              borderRadius: 1,
-            }}
-          >
-            <Typography variant="subtitle2" gutterBottom>
-              Resumen del mes
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Cuotas pendientes: {projection.installments?.length || 0}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Débitos automáticos: {projection.recurringCharges?.length || 0}
-            </Typography>
-            <Typography variant="h6" sx={{ mt: 1 }}>
-              Total: {formData.currency}{" "}
-              {projection.total?.toFixed(2) || "0.00"}
-            </Typography>
+        {projectionLoading && (
+          <Box sx={{ display: "flex", justifyContent: "center", mb: 2.5 }}>
+            <CircularProgress size={22} />
           </Box>
         )}
 
@@ -174,27 +223,28 @@ export default function PaymentDialog({
 
         <TextField
           fullWidth
-          label="Monto"
-          name="amount"
-          type="number"
-          value={formData.amount}
+          select
+          label="Mes a pagar"
+          name="paymentMonth"
+          value={formData.paymentMonth}
           onChange={handleChange}
-          error={!!errors.amount}
-          helperText={errors.amount || "Monto total del pago"}
-          inputProps={{ min: 0, step: 0.01 }}
           sx={{ mb: 2.5 }}
-        />
+        >
+          {MONTHS.map((monthName, index) => (
+            <MenuItem key={monthName} value={String(index + 1)}>
+              {monthName}
+            </MenuItem>
+          ))}
+        </TextField>
 
         <TextField
           fullWidth
-          label="Fecha de pago"
-          name="paymentDate"
-          type="date"
-          value={formData.paymentDate}
+          label="Año a pagar"
+          name="paymentYear"
+          type="number"
+          value={formData.paymentYear}
           onChange={handleChange}
-          error={!!errors.paymentDate}
-          helperText={errors.paymentDate}
-          InputLabelProps={{ shrink: true }}
+          inputProps={{ min: 2024, step: 1 }}
           sx={{ mb: 2.5 }}
         />
 
@@ -210,6 +260,67 @@ export default function PaymentDialog({
           <MenuItem value="ARS">ARS (Pesos)</MenuItem>
           <MenuItem value="USD">USD (Dólares)</MenuItem>
         </TextField>
+
+        {projectionData && (
+          <Box
+            sx={{
+              mb: 2.5,
+              p: 2,
+              bgcolor: "background.default",
+              borderRadius: 1,
+            }}
+          >
+            <Typography variant="subtitle2" gutterBottom>
+              Resumen del período
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Cuotas del período: {projectionData.installments?.length || 0}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Débitos automáticos:{" "}
+              {projectionData.recurringCharges?.length || 0}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Total ARS: {projectionData.totals?.totalARS || "0.00"}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Total USD: {projectionData.totals?.totalUSD || "0.00"}
+            </Typography>
+            <Typography variant="h6" sx={{ mt: 1 }}>
+              Total a registrar: {formData.currency} {formData.amount || "0.00"}
+            </Typography>
+          </Box>
+        )}
+
+        <TextField
+          fullWidth
+          label="Monto"
+          name="amount"
+          type="number"
+          value={formData.amount}
+          onChange={handleChange}
+          error={!!errors.amount}
+          helperText={
+            errors.amount ||
+            "Monto calculado para la tarjeta, período y moneda elegidos"
+          }
+          inputProps={{ min: 0, step: 0.01 }}
+          InputProps={{ readOnly: true }}
+          sx={{ mb: 2.5 }}
+        />
+
+        <TextField
+          fullWidth
+          label="Fecha de pago"
+          name="paymentDate"
+          type="date"
+          value={formData.paymentDate}
+          onChange={handleChange}
+          error={!!errors.paymentDate}
+          helperText={errors.paymentDate}
+          InputLabelProps={{ shrink: true }}
+          sx={{ mb: 2.5 }}
+        />
 
         <TextField
           fullWidth
@@ -251,7 +362,12 @@ export default function PaymentDialog({
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={creditCards.length === 0}
+          disabled={
+            creditCards.length === 0 ||
+            projectionLoading ||
+            !formData.amount ||
+            parseFloat(formData.amount) <= 0
+          }
         >
           Registrar Pago
         </Button>

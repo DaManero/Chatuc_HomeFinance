@@ -52,6 +52,21 @@ import creditCardInstallmentService from "@/services/creditCardInstallment.servi
 import categoryService from "@/services/category.service";
 import paymentMethodService from "@/services/paymentMethod.service";
 
+const MONTHS = [
+  "Ene",
+  "Feb",
+  "Mar",
+  "Abr",
+  "May",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dic",
+];
+
 export default function CreditCardsPage() {
   const { user, isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -82,6 +97,33 @@ export default function CreditCardsPage() {
   // Pagination states
   const [chargePage, setChargePage] = useState(0);
   const [chargeRowsPerPage, setChargeRowsPerPage] = useState(7);
+
+  const formatStatementPeriod = (expense) => {
+    if (expense.firstStatementMonth && expense.firstStatementYear) {
+      return `${MONTHS[expense.firstStatementMonth - 1] || expense.firstStatementMonth}/${expense.firstStatementYear}`;
+    }
+
+    const firstInstallment = expense.installmentsList?.[0];
+    if (!firstInstallment?.dueDate) return "-";
+
+    const dueDate = new Date(`${firstInstallment.dueDate}T00:00:00`);
+    const statementDate = new Date(
+      dueDate.getFullYear(),
+      dueDate.getMonth() - 1,
+      1,
+    );
+    return `${MONTHS[statementDate.getMonth()]}/${statementDate.getFullYear()}`;
+  };
+
+  const getExpenseStatus = (expense) => {
+    const installmentsList = expense.installmentsList || [];
+    if (installmentsList.length === 0) return "Pendiente";
+
+    const paidCount = installmentsList.filter((item) => item.isPaid).length;
+    if (paidCount === 0) return "Pendiente";
+    if (paidCount === installmentsList.length) return "Pagado";
+    return "Parcial";
+  };
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -457,14 +499,16 @@ export default function CreditCardsPage() {
                     <TableCell>Monto Total</TableCell>
                     <TableCell>Cuotas</TableCell>
                     <TableCell>Fecha Compra</TableCell>
+                    <TableCell>Primer Resumen</TableCell>
                     <TableCell>Categoría</TableCell>
+                    <TableCell>Estado</TableCell>
                     <TableCell>Acciones</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {expenses.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} align="center">
+                      <TableCell colSpan={9} align="center">
                         No hay gastos registrados
                       </TableCell>
                     </TableRow>
@@ -483,7 +527,21 @@ export default function CreditCardsPage() {
                         <TableCell>
                           {new Date(expense.purchaseDate).toLocaleDateString()}
                         </TableCell>
+                        <TableCell>{formatStatementPeriod(expense)}</TableCell>
                         <TableCell>{expense.category?.name || "-"}</TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={getExpenseStatus(expense)}
+                            color={
+                              getExpenseStatus(expense) === "Pagado"
+                                ? "success"
+                                : getExpenseStatus(expense) === "Parcial"
+                                  ? "warning"
+                                  : "default"
+                            }
+                          />
+                        </TableCell>
                         <TableCell>
                           <IconButton
                             size="small"

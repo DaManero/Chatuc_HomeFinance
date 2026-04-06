@@ -27,6 +27,46 @@ export const CreditCardInstallment = sequelize.define(
       allowNull: false,
       comment: "Fecha de vencimiento de la cuota",
     },
+    statementMonth: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      validate: {
+        min: 1,
+        max: 12,
+      },
+      comment: "Mes del resumen en el que impacta la cuota",
+    },
+    statementYear: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      validate: {
+        min: 2000,
+      },
+      comment: "Año del resumen en el que impacta la cuota",
+    },
+    paymentMonth: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      validate: {
+        min: 1,
+        max: 12,
+      },
+      comment: "Mes en que se paga la cuota",
+    },
+    paymentYear: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      validate: {
+        min: 2000,
+      },
+      comment: "Año en que se paga la cuota",
+    },
+    status: {
+      type: DataTypes.STRING(20),
+      allowNull: false,
+      defaultValue: "projected",
+      comment: "Estado de la cuota: projected, due, paid, cancelled",
+    },
     isPaid: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
@@ -52,5 +92,5 @@ export const CreditCardInstallment = sequelize.define(
     tableName: "credit_card_installments",
     timestamps: true,
     underscored: true,
-  }
+  },
 );
