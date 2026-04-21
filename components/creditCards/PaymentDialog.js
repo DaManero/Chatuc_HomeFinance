@@ -301,11 +301,9 @@ export default function PaymentDialog({
           onChange={handleChange}
           error={!!errors.amount}
           helperText={
-            errors.amount ||
-            "Monto calculado para la tarjeta, período y moneda elegidos"
+            errors.amount || "Podés editar manualmente el monto sugerido"
           }
           inputProps={{ min: 0, step: 0.01 }}
-          InputProps={{ readOnly: true }}
           sx={{ mb: 2.5 }}
         />
 
