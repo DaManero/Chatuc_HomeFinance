@@ -160,6 +160,17 @@ export default function CreditCardExpenseDialog({
       newErrors.firstStatementYear = "Ingrese el año del primer resumen";
     }
 
+    if (formData.categoryId) {
+      const selectedCategoryExists = categories.some(
+        (category) => String(category.id) === String(formData.categoryId),
+      );
+
+      if (!selectedCategoryExists) {
+        newErrors.categoryId =
+          "La categoría seleccionada no es válida. Seleccioná una nuevamente";
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -176,7 +187,9 @@ export default function CreditCardExpenseDialog({
       firstStatementYear: parseInt(formData.firstStatementYear, 10),
       currency: formData.currency,
       creditCardId: parseInt(formData.creditCardId, 10),
-      categoryId: formData.categoryId || null,
+      categoryId: formData.categoryId
+        ? parseInt(formData.categoryId, 10)
+        : null,
     });
   };
 
@@ -351,7 +364,8 @@ export default function CreditCardExpenseDialog({
           name="categoryId"
           value={formData.categoryId}
           onChange={handleChange}
-          helperText="Opcional"
+          error={!!errors.categoryId}
+          helperText={errors.categoryId || "Opcional"}
         >
           <MenuItem value="">
             <em>Sin categoría</em>
