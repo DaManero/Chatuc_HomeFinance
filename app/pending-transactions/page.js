@@ -74,7 +74,7 @@ export default function PendingTransactionsPage() {
       const [transactionsData, categoriesData, paymentMethodsData, statsData] =
         await Promise.all([
           pendingTransactionService.getPendingTransactions(statusFilter),
-          categoryService.getCategories(),
+          categoryService.getCategoriesFlat(),
           paymentMethodService.getPaymentMethods(),
           pendingTransactionService.getStats(),
         ]);
@@ -207,6 +207,10 @@ export default function PendingTransactionsPage() {
   );
   const subcategories = categories.filter(
     (cat) => cat.type === formData.type && cat.parentCategoryId,
+  );
+
+  const orphanSubcategories = subcategories.filter(
+    (sub) => !mainCategories.some((main) => main.id === sub.parentCategoryId),
   );
 
   if (loading) {
@@ -454,38 +458,63 @@ export default function PendingTransactionsPage() {
                       No hay categorías de tipo {formData.type}
                     </MenuItem>
                   ) : (
-                    mainCategories.flatMap((mainCat) => {
-                      const subcats = subcategories.filter(
-                        (sub) => sub.parentCategoryId === mainCat.id,
-                      );
-                      return [
-                        <ListSubheader key={`header-${mainCat.id}`}>
-                          <Typography
-                            variant="body2"
-                            fontWeight={600}
-                            color="primary"
+                    [
+                      ...mainCategories.flatMap((mainCat) => {
+                        const subcats = subcategories.filter(
+                          (sub) => sub.parentCategoryId === mainCat.id,
+                        );
+
+                        return [
+                          <ListSubheader key={`header-${mainCat.id}`}>
+                            <Typography
+                              variant="body2"
+                              fontWeight={600}
+                              color="primary"
+                            >
+                              {mainCat.name}
+                            </Typography>
+                          </ListSubheader>,
+                          <MenuItem
+                            key={`main-${mainCat.id}`}
+                            value={mainCat.id}
+                            sx={{ pl: 4, fontWeight: 500 }}
                           >
                             {mainCat.name}
-                          </Typography>
-                        </ListSubheader>,
-                        <MenuItem
-                          key={`main-${mainCat.id}`}
-                          value={mainCat.id}
-                          sx={{ pl: 4, fontWeight: 500 }}
-                        >
-                          {mainCat.name}
-                        </MenuItem>,
-                        ...subcats.map((subcat) => (
-                          <MenuItem
-                            key={`sub-${subcat.id}`}
-                            value={subcat.id}
-                            sx={{ pl: 6 }}
-                          >
-                            {subcat.name}
-                          </MenuItem>
-                        )),
-                      ];
-                    })
+                          </MenuItem>,
+                          ...subcats.map((subcat) => (
+                            <MenuItem
+                              key={`sub-${subcat.id}`}
+                              value={subcat.id}
+                              sx={{ pl: 4 }}
+                            >
+                              {subcat.name}
+                            </MenuItem>
+                          )),
+                        ];
+                      }),
+                      ...(orphanSubcategories.length > 0
+                        ? [
+                            <ListSubheader key="header-orphan">
+                              <Typography
+                                variant="body2"
+                                fontWeight={600}
+                                color="text.secondary"
+                              >
+                                Subcategorías sin padre
+                              </Typography>
+                            </ListSubheader>,
+                            ...orphanSubcategories.map((subcat) => (
+                              <MenuItem
+                                key={`orphan-${subcat.id}`}
+                                value={subcat.id}
+                                sx={{ pl: 4 }}
+                              >
+                                {subcat.name}
+                              </MenuItem>
+                            )),
+                          ]
+                        : []),
+                    ]
                   )}
                 </TextField>
 
