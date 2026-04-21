@@ -230,7 +230,7 @@ export async function createCreditCardPayment(req, res) {
     }
 
     const creditCard = await models.CreditCard.findOne({
-      where: { id: creditCardId, userId },
+      where: { id: creditCardId },
     });
 
     if (!creditCard) {
@@ -405,7 +405,7 @@ export async function getCreditCardSummary(req, res) {
     const userId = req.user.userId;
 
     const creditCard = await models.CreditCard.findOne({
-      where: { id, userId },
+      where: { id },
     });
 
     if (!creditCard) {

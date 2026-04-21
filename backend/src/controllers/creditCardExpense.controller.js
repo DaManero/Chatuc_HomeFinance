@@ -102,7 +102,7 @@ export async function createCreditCardExpense(req, res) {
 
     // Verificar que la tarjeta existe
     const creditCard = await models.CreditCard.findOne({
-      where: { id: creditCardId, userId },
+      where: { id: creditCardId },
     });
 
     if (!creditCard) {
@@ -220,7 +220,6 @@ export async function getCreditCardExpenses(req, res) {
         {
           model: models.CreditCard,
           as: "creditCard",
-          where: { userId },
           attributes: ["id", "name", "bank", "lastFourDigits"],
         },
         {
@@ -319,7 +318,7 @@ export async function updateCreditCardExpense(req, res) {
 
     if (creditCardId !== undefined) {
       creditCard = await models.CreditCard.findOne({
-        where: { id: creditCardId, userId },
+        where: { id: creditCardId },
       });
 
       if (!creditCard) {
@@ -331,7 +330,7 @@ export async function updateCreditCardExpense(req, res) {
       expense.creditCardId = creditCardId;
     } else {
       creditCard = await models.CreditCard.findOne({
-        where: { id: expense.creditCardId, userId },
+        where: { id: expense.creditCardId },
       });
     }
 
