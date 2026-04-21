@@ -18,7 +18,7 @@ export async function createCategory(req, res) {
     // Si tiene categoría padre, validar que exista
     if (parentCategoryId) {
       const parentCategory = await models.Category.findOne({
-        where: { id: parentCategoryId, userId },
+        where: { id: parentCategoryId },
       });
       if (!parentCategory) {
         return res.status(400).json({ error: "Categoría padre no encontrada" });
@@ -92,14 +92,11 @@ export async function updateCategory(req, res) {
     const { name, type, isRecurring, parentCategoryId } = req.body;
     const userId = req.user.userId;
 
-    console.log(`Intentando actualizar categoría: id=${id}, userId=${userId}`);
-
     const category = await models.Category.findOne({
-      where: { id: parseInt(id), userId },
+      where: { id: parseInt(id) },
     });
 
     if (!category) {
-      console.log(`Categoría no encontrada: id=${id}, userId=${userId}`);
       return res.status(404).json({ error: "Categoría no encontrada" });
     }
 
@@ -119,7 +116,7 @@ export async function updateCategory(req, res) {
     // Si tiene categoría padre, validar que exista
     if (parentCategoryId) {
       const parentCategory = await models.Category.findOne({
-        where: { id: parentCategoryId, userId },
+        where: { id: parentCategoryId },
       });
       if (!parentCategory) {
         return res.status(400).json({ error: "Categoría padre no encontrada" });
@@ -153,10 +150,9 @@ export async function updateCategory(req, res) {
 export async function deleteCategory(req, res) {
   try {
     const { id } = req.params;
-    const userId = req.user.userId;
 
     const category = await models.Category.findOne({
-      where: { id: parseInt(id), userId },
+      where: { id: parseInt(id) },
     });
 
     if (!category) {

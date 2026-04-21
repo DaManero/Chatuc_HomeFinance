@@ -78,9 +78,9 @@ export async function createCreditCardExpense(req, res) {
     } = req.body;
     const userId = req.user.userId;
 
-    if (!description || !totalAmount || !creditCardId || !categoryId) {
+    if (!description || !totalAmount || !creditCardId) {
       return res.status(400).json({
-        error: "Descripción, monto total, tarjeta y categoría son requeridos",
+        error: "Descripción, monto total y tarjeta son requeridos",
       });
     }
 
@@ -111,13 +111,15 @@ export async function createCreditCardExpense(req, res) {
         .json({ error: "Tarjeta de crédito no encontrada" });
     }
 
-    // Verificar que la categoría existe
-    const category = await models.Category.findOne({
-      where: { id: categoryId, userId },
-    });
+    // Verificar que la categoría existe (si se proporcionó)
+    if (categoryId) {
+      const category = await models.Category.findOne({
+        where: { id: categoryId },
+      });
 
-    if (!category) {
-      return res.status(404).json({ error: "Categoría no encontrada" });
+      if (!category) {
+        return res.status(404).json({ error: "Categoría no encontrada" });
+      }
     }
 
     // Buscar o crear el medio de pago para esta tarjeta
@@ -289,7 +291,7 @@ export async function updateCreditCardExpense(req, res) {
     if (description !== undefined) expense.description = description;
     if (categoryId !== undefined) {
       const category = await models.Category.findOne({
-        where: { id: categoryId, userId },
+        where: { id: categoryId },
       });
       if (!category) {
         return res.status(404).json({ error: "Categoría no encontrada" });

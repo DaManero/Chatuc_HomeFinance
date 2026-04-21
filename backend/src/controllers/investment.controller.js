@@ -52,7 +52,7 @@ export async function createInvestment(req, res) {
         description,
         userId,
       },
-      { transaction: t }
+      { transaction: t },
     );
 
     // Si es compra o venta de divisas, crear las 2 transacciones automáticas
@@ -69,7 +69,6 @@ export async function createInvestment(req, res) {
         // Buscar categoría "Compra Dolar" para el egreso
         let compraDolarCategory = await models.Category.findOne({
           where: {
-            userId,
             name: { [Op.like]: "%Compra%Dolar%" },
           },
           transaction: t,
@@ -82,14 +81,13 @@ export async function createInvestment(req, res) {
               type: "Egreso",
               userId,
             },
-            { transaction: t }
+            { transaction: t },
           );
         }
 
         // Buscar o crear categoría "Inversiones" para el ingreso
         let investmentCategory = await models.Category.findOne({
           where: {
-            userId,
             name: { [Op.like]: "%Inversión%" },
           },
           transaction: t,
@@ -102,7 +100,7 @@ export async function createInvestment(req, res) {
               type: "Ingreso",
               userId,
             },
-            { transaction: t }
+            { transaction: t },
           );
         }
 
@@ -120,7 +118,7 @@ export async function createInvestment(req, res) {
             categoryId: compraDolarCategory.id,
             userId,
           },
-          { transaction: t }
+          { transaction: t },
         );
 
         // Ingreso en dólares
@@ -136,14 +134,13 @@ export async function createInvestment(req, res) {
             categoryId: investmentCategory.id,
             userId,
           },
-          { transaction: t }
+          { transaction: t },
         );
       } else {
         // Venta Divisa
         // Buscar o crear categoría "Inversiones"
         let investmentCategory = await models.Category.findOne({
           where: {
-            userId,
             name: { [Op.like]: "%Inversión%" },
           },
           transaction: t,
@@ -156,7 +153,7 @@ export async function createInvestment(req, res) {
               type: "Ingreso",
               userId,
             },
-            { transaction: t }
+            { transaction: t },
           );
         }
 
@@ -174,7 +171,7 @@ export async function createInvestment(req, res) {
             categoryId: investmentCategory.id,
             userId,
           },
-          { transaction: t }
+          { transaction: t },
         );
 
         // Ingreso en pesos
@@ -190,7 +187,7 @@ export async function createInvestment(req, res) {
             categoryId: investmentCategory.id,
             userId,
           },
-          { transaction: t }
+          { transaction: t },
         );
       }
     }
@@ -238,7 +235,7 @@ export async function getInvestments(req, res) {
       const investment = inv.toJSON();
       const totalEarnings = (investment.earnings || []).reduce(
         (sum, e) => sum + parseFloat(e.amount || 0),
-        0
+        0,
       );
       return {
         ...investment,
@@ -366,7 +363,6 @@ export async function registerEarning(req, res) {
     // Buscar o crear categoría "Inversiones"
     let investmentCategory = await models.Category.findOne({
       where: {
-        userId,
         name: { [Op.like]: "%Inversión%" },
       },
       transaction: t,
@@ -379,7 +375,7 @@ export async function registerEarning(req, res) {
           type: "Ingreso",
           userId,
         },
-        { transaction: t }
+        { transaction: t },
       );
     }
 
@@ -396,7 +392,7 @@ export async function registerEarning(req, res) {
         categoryId: investmentCategory.id,
         userId,
       },
-      { transaction: t }
+      { transaction: t },
     );
 
     // Registrar el rendimiento
@@ -410,7 +406,7 @@ export async function registerEarning(req, res) {
         transactionId: incomeTransaction.id,
         userId,
       },
-      { transaction: t }
+      { transaction: t },
     );
 
     await t.commit();

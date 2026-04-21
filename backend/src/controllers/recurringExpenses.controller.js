@@ -16,7 +16,7 @@ export async function getRecurringProjection(req, res) {
 
     // ── 1. Obtener todas las categorías recurrentes con su padre ──────────────
     const recurringCategories = await models.Category.findAll({
-      where: { isRecurring: true, userId },
+      where: { isRecurring: true },
       include: [
         {
           model: models.Category,
@@ -68,11 +68,43 @@ export async function getRecurringProjection(req, res) {
       recurringCategories.map((cat) => [cat.id, resolveGroup(cat)]),
     );
 
+    // IDs de las categorías padre de las subcategorías recurrentes
+    // (para capturar transacciones asignadas directamente a la categoría padre)
+    const parentCategoryIds = [
+      ...new Set(
+        recurringCategories
+          .filter((cat) => cat.parentCategoryId && cat.parentCategory)
+          .map((cat) => cat.parentCategoryId),
+      ),
+    ];
+
+    // Agregar las categorías padre al mapa con groupId = sí mismas
+    if (parentCategoryIds.length > 0) {
+      const parentCategories = await models.Category.findAll({
+        where: { id: { [Op.in]: parentCategoryIds } },
+        attributes: ["id", "name", "type"],
+      });
+      parentCategories.forEach((parent) => {
+        if (!categoryGroupMap.has(parent.id)) {
+          categoryGroupMap.set(parent.id, {
+            groupId: parent.id,
+            groupName: parent.name,
+            groupType: parent.type,
+          });
+        }
+      });
+    }
+
+    // Todos los IDs a buscar en transacciones: subcategorías recurrentes + padres de esas subcategorías
+    const allCategoryIdsToQuery = [
+      ...allRecurringCategoryIds,
+      ...parentCategoryIds,
+    ];
+
     // ── 2. Una sola query para TODAS las transacciones del mes actual ─────────
     const transactions = await models.Transaction.findAll({
       where: {
-        userId,
-        categoryId: { [Op.in]: allRecurringCategoryIds },
+        categoryId: { [Op.in]: allCategoryIdsToQuery },
         date: { [Op.between]: [firstDayStr, lastDayStr] },
       },
       attributes: ["id", "amount", "currency", "date", "categoryId"],
@@ -143,7 +175,6 @@ export async function getRecurringProjection(req, res) {
     // ── 4. Débitos automáticos (CreditCardRecurringCharge) ────────────────────
     const recurringCharges = await models.CreditCardRecurringCharge.findAll({
       where: {
-        userId,
         isActive: true,
         categoryId: { [Op.in]: allRecurringCategoryIds },
       },
@@ -186,7 +217,6 @@ export async function getRecurringProjection(req, res) {
     // ── 5. Gastos de TC en 1 cuota del mes actual (purchaseDate en mes actual) ─
     const singleInstallmentExpenses = await models.CreditCardExpense.findAll({
       where: {
-        userId,
         installments: 1,
         categoryId: { [Op.in]: allRecurringCategoryIds },
         purchaseDate: { [Op.between]: [firstDayStr, lastDayStr] },
