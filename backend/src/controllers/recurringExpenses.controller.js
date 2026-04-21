@@ -1,10 +1,12 @@
 import { models } from "../models/index.js";
 import { Op } from "sequelize";
+import {
+  getPaymentPeriodForInstallment,
+  getPeriodKey,
+} from "../utils/creditCardPeriods.js";
 
 export async function getRecurringProjection(req, res) {
   try {
-    const userId = req.user.userId;
-
     // Obtener el primer y último día del mes actual
     const now = new Date();
     const firstDayStr = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -258,7 +260,120 @@ export async function getRecurringProjection(req, res) {
       entry.projectedAmount += amount;
     });
 
-    // ── 6. Calcular totales y responder ───────────────────────────────────────
+    // ── 6. Proyección consolidada de Tarjetas de Crédito (próximo mes) ────────
+    const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const targetCardMonth = nextMonthDate.getMonth() + 1;
+    const targetCardYear = nextMonthDate.getFullYear();
+
+    const openInstallments = await models.CreditCardInstallment.findAll({
+      where: { isPaid: false },
+      include: [
+        {
+          model: models.CreditCardExpense,
+          as: "expense",
+          required: true,
+          attributes: ["id", "currency"],
+        },
+      ],
+      attributes: [
+        "id",
+        "amount",
+        "dueDate",
+        "statementMonth",
+        "statementYear",
+        "paymentMonth",
+        "paymentYear",
+      ],
+    });
+
+    const installmentsForTargetPeriod = openInstallments.filter(
+      (installment) => {
+        const paymentPeriod = getPaymentPeriodForInstallment(installment);
+        return (
+          paymentPeriod.month === targetCardMonth &&
+          paymentPeriod.year === targetCardYear
+        );
+      },
+    );
+
+    const paidPeriods = await models.CreditCardPayment.findAll({
+      attributes: ["creditCardId", "paymentMonth", "paymentYear", "currency"],
+    });
+
+    const paidPeriodSet = new Set(
+      paidPeriods
+        .filter(
+          (payment) =>
+            payment.creditCardId &&
+            payment.paymentMonth &&
+            payment.paymentYear &&
+            payment.currency,
+        )
+        .map(
+          (payment) =>
+            `${payment.creditCardId}-${getPeriodKey(
+              payment.paymentMonth,
+              payment.paymentYear,
+            )}-${payment.currency}`,
+        ),
+    );
+
+    const activeRecurringCharges =
+      await models.CreditCardRecurringCharge.findAll({
+        where: { isActive: true },
+        attributes: ["amount", "currency", "creditCardId"],
+      });
+
+    const recurringChargesForTargetPeriod = activeRecurringCharges.filter(
+      (charge) => {
+        const paidKey = `${charge.creditCardId}-${getPeriodKey(
+          targetCardMonth,
+          targetCardYear,
+        )}-${charge.currency || "ARS"}`;
+        return !paidPeriodSet.has(paidKey);
+      },
+    );
+
+    let projectedCardsARS = 0;
+    let projectedCardsUSD = 0;
+
+    installmentsForTargetPeriod.forEach((installment) => {
+      const amount = parseFloat(installment.amount);
+      const currency = installment.expense?.currency || "ARS";
+      if (currency === "USD") {
+        projectedCardsUSD += amount;
+      } else {
+        projectedCardsARS += amount;
+      }
+    });
+
+    recurringChargesForTargetPeriod.forEach((charge) => {
+      const amount = parseFloat(charge.amount);
+      const currency = charge.currency || "ARS";
+      if (currency === "USD") {
+        projectedCardsUSD += amount;
+      } else {
+        projectedCardsARS += amount;
+      }
+    });
+
+    if (projectedCardsARS > 0 || projectedCardsUSD > 0) {
+      projections.push({
+        categoryId: -1,
+        categoryName: "Tarjetas de Crédito",
+        type: "Egreso",
+        lastAmountARS: projectedCardsARS,
+        lastAmountUSD: projectedCardsUSD,
+        lastAmount: projectedCardsARS + projectedCardsUSD,
+        projectedAmountARS: projectedCardsARS,
+        projectedAmountUSD: projectedCardsUSD,
+        projectedAmount: projectedCardsARS + projectedCardsUSD,
+        transactionCount: 0,
+        lastDate: null,
+      });
+    }
+
+    // ── 7. Calcular totales y responder ───────────────────────────────────────
     projections.sort((a, b) => a.categoryName.localeCompare(b.categoryName));
 
     const totalIngresosARS = projections
