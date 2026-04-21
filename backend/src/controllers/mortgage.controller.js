@@ -9,6 +9,82 @@ function getTodayLocalDate() {
   return `${year}-${month}-${day}`;
 }
 
+async function ensureMortgageProjectionCategory({ userId, transaction }) {
+  // Categoría principal para agrupar gastos del hogar en proyecciones.
+  let parentCategory = await models.Category.findOne({
+    where: {
+      userId,
+      name: "Gastos del Departamento",
+      type: "Egreso",
+      parentCategoryId: null,
+    },
+    transaction,
+  });
+
+  if (!parentCategory) {
+    parentCategory = await models.Category.create(
+      {
+        userId,
+        name: "Gastos del Departamento",
+        type: "Egreso",
+        parentCategoryId: null,
+        isRecurring: true,
+      },
+      { transaction },
+    );
+  } else if (!parentCategory.isRecurring) {
+    parentCategory.isRecurring = true;
+    await parentCategory.save({ transaction });
+  }
+
+  // Subcategoría específica de hipoteca donde se imputan los pagos.
+  let mortgageCategory = await models.Category.findOne({
+    where: {
+      userId,
+      name: "Hipoteca",
+      type: "Egreso",
+      parentCategoryId: parentCategory.id,
+    },
+    transaction,
+  });
+
+  if (!mortgageCategory) {
+    // Compatibilidad con datos viejos donde "Hipoteca" pudo existir sin padre.
+    mortgageCategory = await models.Category.findOne({
+      where: {
+        userId,
+        name: "Hipoteca",
+        type: "Egreso",
+      },
+      transaction,
+    });
+
+    if (mortgageCategory) {
+      mortgageCategory.parentCategoryId = parentCategory.id;
+      mortgageCategory.isRecurring = true;
+      await mortgageCategory.save({ transaction });
+    }
+  }
+
+  if (!mortgageCategory) {
+    mortgageCategory = await models.Category.create(
+      {
+        userId,
+        name: "Hipoteca",
+        type: "Egreso",
+        parentCategoryId: parentCategory.id,
+        isRecurring: true,
+      },
+      { transaction },
+    );
+  } else if (!mortgageCategory.isRecurring) {
+    mortgageCategory.isRecurring = true;
+    await mortgageCategory.save({ transaction });
+  }
+
+  return mortgageCategory;
+}
+
 // GET /mortgage - Obtener el préstamo hipotecario con resumen
 export async function getMortgage(req, res) {
   try {
@@ -128,25 +204,17 @@ export async function payInstallment(req, res) {
         ? Math.round((amountPaid / parseFloat(dollarRate)) * 100) / 100
         : null;
 
-    // Buscar o crear categoría "Hipotecario"
-    let category = await models.Category.findOne({
-      where: { userId, name: "Hipotecario", type: "Egreso" },
+    const category = await ensureMortgageProjectionCategory({
+      userId,
       transaction: t,
     });
-
-    if (!category) {
-      category = await models.Category.create(
-        { name: "Hipotecario", type: "Egreso", userId },
-        { transaction: t },
-      );
-    }
 
     // Crear transacción
     const transaction = await models.Transaction.create(
       {
         amount: amountPaid,
         date: getTodayLocalDate(),
-        description: `Cuota ${installment.installmentNumber}/360 - Hipotecario (${totalUva} UVAs × $${uvaRate})`,
+        description: `Cuota ${installment.installmentNumber}/360 - Hipoteca (${totalUva} UVAs × $${uvaRate})`,
         type: "Egreso",
         currency: "ARS",
         categoryId: category.id,

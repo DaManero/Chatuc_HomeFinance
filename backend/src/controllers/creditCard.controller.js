@@ -75,7 +75,10 @@ export async function createCreditCard(req, res) {
 
 export async function getCreditCards(req, res) {
   try {
+    const userId = req.user.userId;
+
     const creditCards = await models.CreditCard.findAll({
+      where: { userId },
       order: [["name", "ASC"]],
     });
 
@@ -89,6 +92,7 @@ export async function getCreditCards(req, res) {
 export async function updateCreditCard(req, res) {
   try {
     const { id } = req.params;
+    const userId = req.user.userId;
     const {
       name,
       bank,
@@ -98,7 +102,9 @@ export async function updateCreditCard(req, res) {
       dueDay,
     } = req.body;
 
-    const creditCard = await models.CreditCard.findOne({ where: { id } });
+    const creditCard = await models.CreditCard.findOne({
+      where: { id, userId },
+    });
 
     if (!creditCard) {
       return res
@@ -159,8 +165,11 @@ export async function updateCreditCard(req, res) {
 export async function deleteCreditCard(req, res) {
   try {
     const { id } = req.params;
+    const userId = req.user.userId;
 
-    const creditCard = await models.CreditCard.findOne({ where: { id } });
+    const creditCard = await models.CreditCard.findOne({
+      where: { id, userId },
+    });
 
     if (!creditCard) {
       return res
@@ -170,7 +179,7 @@ export async function deleteCreditCard(req, res) {
 
     // Verificar si tiene gastos asociados
     const expensesCount = await models.CreditCardExpense.count({
-      where: { creditCardId: id },
+      where: { creditCardId: id, userId },
     });
 
     if (expensesCount > 0) {
