@@ -138,6 +138,14 @@ export default function CreditCardExpenseDialog({
 
     if (!formData.creditCardId) {
       newErrors.creditCardId = "Seleccione una tarjeta";
+    } else {
+      const selectedExists = creditCards.some(
+        (card) => String(card.id) === String(formData.creditCardId),
+      );
+      if (!selectedExists) {
+        newErrors.creditCardId =
+          "La tarjeta seleccionada no es válida. Seleccioná una nuevamente";
+      }
     }
 
     if (!formData.purchaseDate) {
@@ -167,7 +175,7 @@ export default function CreditCardExpenseDialog({
       firstStatementMonth: parseInt(formData.firstStatementMonth, 10),
       firstStatementYear: parseInt(formData.firstStatementYear, 10),
       currency: formData.currency,
-      creditCardId: formData.creditCardId,
+      creditCardId: parseInt(formData.creditCardId, 10),
       categoryId: formData.categoryId || null,
     });
   };
