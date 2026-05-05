@@ -211,9 +211,16 @@ export default function TransactionsPage() {
       const isCurrentMonth =
         transactionDate.getMonth() === currentMonth &&
         transactionDate.getFullYear() === currentYear;
-      // Excluir solo los pagos de resumen de tarjeta (generados automáticamente) del balance
-      const isCreditCardStatement = t.category?.name === "Tarjetas de credito";
-      return isCurrentMonth && !isCreditCardStatement;
+
+      // Solo impacta en balance lo que efectivamente sale del dinero del mes.
+      // Los consumos con tarjeta se pagan luego en el resumen, por eso se excluyen.
+      // El pago de resumen (categoría "Tarjetas de credito") sí debe impactar.
+      const isCreditCardSpending =
+        t.type === "Egreso" &&
+        t.paymentMethod?.type === "Tarjeta" &&
+        t.category?.name !== "Tarjetas de credito";
+
+      return isCurrentMonth && !isCreditCardSpending;
     })
     .reduce((acc, t) => {
       const currency = t.currency || "ARS";
