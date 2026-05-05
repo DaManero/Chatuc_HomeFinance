@@ -7,8 +7,6 @@ import {
 
 export async function getPendingInstallments(req, res) {
   try {
-    const userId = req.user.userId;
-
     // Obtener cuotas pendientes
     const installments = await models.CreditCardInstallment.findAll({
       where: {
@@ -24,7 +22,6 @@ export async function getPendingInstallments(req, res) {
               model: models.CreditCard,
               as: "creditCard",
               required: true,
-              where: { userId },
               attributes: ["id", "name", "bank", "brand"],
             },
             {
@@ -51,7 +48,6 @@ export async function getPendingInstallments(req, res) {
     });
 
     const payments = await models.CreditCardPayment.findAll({
-      where: { userId },
       attributes: ["creditCardId", "paymentMonth", "paymentYear", "currency"],
     });
 
@@ -73,7 +69,6 @@ export async function getPendingInstallments(req, res) {
     // Obtener débitos automáticos activos
     const recurringCharges = await models.CreditCardRecurringCharge.findAll({
       where: {
-        userId,
         isActive: true,
       },
       include: [
@@ -169,7 +164,6 @@ export async function getPendingInstallments(req, res) {
 export async function markInstallmentAsPaid(req, res) {
   try {
     const { id } = req.params;
-    const userId = req.user.userId;
 
     const installment = await models.CreditCardInstallment.findOne({
       where: { id },
@@ -183,7 +177,6 @@ export async function markInstallmentAsPaid(req, res) {
               model: models.CreditCard,
               as: "creditCard",
               required: true,
-              where: { userId },
             },
           ],
         },
@@ -223,7 +216,6 @@ export async function markInstallmentAsPaid(req, res) {
 
 export async function markInstallmentsAsPaidBulk(req, res) {
   try {
-    const userId = req.user.userId;
     const { installmentIds } = req.body;
 
     if (!Array.isArray(installmentIds) || installmentIds.length === 0) {
@@ -254,7 +246,6 @@ export async function markInstallmentsAsPaidBulk(req, res) {
               model: models.CreditCard,
               as: "creditCard",
               required: true,
-              where: { userId },
               attributes: ["id"],
             },
           ],
