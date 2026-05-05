@@ -8,7 +8,17 @@ const creditCardInstallmentService = {
 
   markAsPaid: async (installmentId) => {
     const response = await api.patch(
-      `/credit-card-installments/${installmentId}/mark-paid`
+      `/credit-card-installments/${installmentId}/mark-paid`,
+    );
+    return response.data;
+  },
+
+  markManyAsPaid: async (installmentIds) => {
+    const response = await api.patch(
+      "/credit-card-installments/mark-paid/bulk",
+      {
+        installmentIds,
+      },
     );
     return response.data;
   },

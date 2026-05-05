@@ -143,23 +143,25 @@ export default function CreditCardsPage() {
       setCategories(categoriesRes || []);
       setPaymentMethods(paymentMethodsRes.paymentMethods || []);
 
-      if (activeTab === 0) {
+      if (activeTab === 1) {
         const expensesRes = await creditCardExpenseService.getExpenses();
         setExpenses(expensesRes || []);
-      } else if (activeTab === 1) {
+      } else if (activeTab === 2) {
         const chargesRes = await recurringChargeService.getRecurringCharges();
         setRecurringCharges(chargesRes || []);
-      } else if (activeTab === 2) {
+      } else if (activeTab === 3) {
         const installmentsRes =
           await creditCardInstallmentService.getPendingInstallments();
         setPendingInstallments(installmentsRes || []);
-      } else if (activeTab === 3) {
+      } else if (activeTab === 4) {
         const paymentsRes = await paymentService.getPayments();
         setPayments(paymentsRes.payments || []);
-      } else if (activeTab === 4) {
+      } else if (activeTab === 5) {
         const installmentsRes =
           await creditCardInstallmentService.getPendingInstallments();
         setPendingInstallments(installmentsRes || []);
+      } else if (activeTab === 0) {
+        // La pestaña de tarjetas usa la data ya cargada en creditCards
       }
     } catch (error) {
       console.error("Error loading data:", error);
@@ -177,21 +179,23 @@ export default function CreditCardsPage() {
 
   const loadTabData = async () => {
     try {
-      if (activeTab === 0) {
+      if (activeTab === 1) {
         const res = await creditCardExpenseService.getExpenses();
         setExpenses(res || []);
-      } else if (activeTab === 1) {
+      } else if (activeTab === 2) {
         const res = await recurringChargeService.getRecurringCharges();
         setRecurringCharges(res || []);
-      } else if (activeTab === 2) {
+      } else if (activeTab === 3) {
         const res = await creditCardInstallmentService.getPendingInstallments();
         setPendingInstallments(res || []);
-      } else if (activeTab === 3) {
+      } else if (activeTab === 4) {
         const res = await paymentService.getPayments();
         setPayments(res.payments || []);
-      } else if (activeTab === 4) {
+      } else if (activeTab === 5) {
         const res = await creditCardInstallmentService.getPendingInstallments();
         setPendingInstallments(res || []);
+      } else if (activeTab === 0) {
+        // La pestaña de tarjetas usa la data ya cargada en creditCards
       }
     } catch (error) {
       console.error("Error loading tab data:", error);
@@ -343,6 +347,37 @@ export default function CreditCardsPage() {
     }
   };
 
+  const handleMarkMonthInstallmentsAsPaid = async (monthGroup) => {
+    const total = monthGroup?.installments?.length || 0;
+    if (total === 0) return;
+
+    if (
+      !confirm(
+        `¿Confirmar pago de ${total} cuota${
+          total !== 1 ? "s" : ""
+        } del período ${monthGroup.month}?`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const installmentIds = monthGroup.installments.map(
+        (installment) => installment.id,
+      );
+      const result =
+        await creditCardInstallmentService.markManyAsPaid(installmentIds);
+      toast.success(result?.message || "Cuotas del mes marcadas como pagadas");
+      const res = await creditCardInstallmentService.getPendingInstallments();
+      setPendingInstallments(res || []);
+    } catch (error) {
+      toast.error(
+        error.response?.data?.error ||
+          "Error al marcar cuotas del mes como pagadas",
+      );
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -391,83 +426,10 @@ export default function CreditCardsPage() {
           </Box>
         </Box>
 
-        {/* Cards Overview - Always visible */}
-        <Grid container spacing={3} sx={{ mb: 3 }}>
-          {creditCards.length === 0 ? (
-            <Grid item xs={12}>
-              <Alert severity="info">
-                No hay tarjetas registradas. Haga clic en "Nueva Tarjeta" para
-                comenzar.
-              </Alert>
-            </Grid>
-          ) : (
-            creditCards.map((card) => (
-              <Grid item xs={12} sm={6} md={4} key={card.id}>
-                <Card sx={{ width: 320, height: "100%" }}>
-                  <CardContent sx={{ height: "100%" }}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        mb: 1,
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 1.5,
-                        }}
-                      >
-                        <CardBrandIcon brand={card.brand} size={32} />
-                        <Typography variant="h6">{card.name}</Typography>
-                      </Box>
-                      <Box>
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={() =>
-                            setCardDialog({ open: true, data: card })
-                          }
-                        >
-                          <EditOutlined fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDeleteCard(card.id)}
-                        >
-                          <DeleteOutlined fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    </Box>
-                    <Typography variant="body2" color="text.secondary">
-                      {card.bank}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      **** **** **** {card.lastFourDigits}
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ mt: 1 }}
-                    >
-                      Vence: {card.expirationMonth?.toString().padStart(2, "0")}
-                      /{card.expirationYear}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Cierre día: {card.dueDay}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))
-          )}
-        </Grid>
-
         {/* Tabs */}
         <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
           <Tabs value={activeTab} onChange={(e, val) => setActiveTab(val)}>
+            <Tab label="Tarjetas" />
             <Tab label="Gastos" />
             <Tab label="Débitos Automáticos" />
             <Tab label="Cuotas Pendientes" />
@@ -477,7 +439,7 @@ export default function CreditCardsPage() {
         </Box>
 
         {/* Expenses Tab */}
-        {activeTab === 0 && (
+        {activeTab === 1 && (
           <Box>
             <Box
               sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}
@@ -572,7 +534,7 @@ export default function CreditCardsPage() {
         )}
 
         {/* Recurring Charges Tab */}
-        {activeTab === 1 && (
+        {activeTab === 2 && (
           <Box>
             <Box
               sx={{
@@ -745,7 +707,7 @@ export default function CreditCardsPage() {
         )}
 
         {/* Payment History Tab */}
-        {activeTab === 3 && (
+        {activeTab === 4 && (
           <Box>
             <Typography variant="h6" sx={{ mb: 2 }}>
               Historial de Pagos
@@ -803,16 +765,113 @@ export default function CreditCardsPage() {
         )}
 
         {/* Pending Installments Tab */}
-        {activeTab === 2 && (
+        {activeTab === 3 && (
           <PendingInstallmentsTab
             pendingInstallments={pendingInstallments}
             onMarkAsPaid={handleMarkInstallmentAsPaid}
+            onMarkMonthAsPaid={handleMarkMonthInstallmentsAsPaid}
           />
         )}
 
         {/* Projections Tab */}
-        {activeTab === 4 && (
+        {activeTab === 5 && (
           <ProjectionsTab pendingInstallments={pendingInstallments} />
+        )}
+
+        {/* Cards Tab */}
+        {activeTab === 0 && (
+          <Box>
+            {creditCards.length === 0 ? (
+              <Alert severity="info">
+                No hay tarjetas registradas. Haga clic en "Nueva Tarjeta" para
+                comenzar.
+              </Alert>
+            ) : (
+              <Grid container spacing={2}>
+                {creditCards.map((card) => (
+                  <Grid item xs={12} sm={6} md={4} lg={3} key={card.id}>
+                    <Card sx={{ height: "100%" }}>
+                      <CardContent sx={{ py: 1.5, px: 2 }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            mb: 0.5,
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                              minWidth: 0,
+                            }}
+                          >
+                            <CardBrandIcon brand={card.brand} size={24} />
+                            <Typography
+                              variant="subtitle1"
+                              sx={{
+                                fontWeight: 600,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {card.name}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ ml: 0.5 }}>
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() =>
+                                setCardDialog({ open: true, data: card })
+                              }
+                            >
+                              <EditOutlined fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteCard(card.id)}
+                            >
+                              <DeleteOutlined fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        </Box>
+
+                        <Typography variant="caption" color="text.secondary">
+                          {card.bank}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          **** **** **** {card.lastFourDigits}
+                        </Typography>
+
+                        <Box
+                          sx={{
+                            mt: 1,
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: 1,
+                          }}
+                        >
+                          <Typography variant="caption" color="text.secondary">
+                            Vence:{" "}
+                            {card.expirationMonth?.toString().padStart(2, "0")}/
+                            {card.expirationYear}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Cierre: {card.dueDay}
+                          </Typography>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            )}
+          </Box>
         )}
 
         {/* Dialogs */}

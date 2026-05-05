@@ -211,9 +211,9 @@ export default function TransactionsPage() {
       const isCurrentMonth =
         transactionDate.getMonth() === currentMonth &&
         transactionDate.getFullYear() === currentYear;
-      // Excluir transacciones con medio de pago tipo "Tarjeta" del balance
-      const isCreditCardPayment = t.paymentMethod?.type === "Tarjeta";
-      return isCurrentMonth && !isCreditCardPayment;
+      // Excluir solo los pagos de resumen de tarjeta (generados automáticamente) del balance
+      const isCreditCardStatement = t.category?.name === "Tarjetas de credito";
+      return isCurrentMonth && !isCreditCardStatement;
     })
     .reduce((acc, t) => {
       const currency = t.currency || "ARS";

@@ -14,6 +14,7 @@ import {
   TableRow,
   Chip,
   IconButton,
+  Button,
   Accordion,
   AccordionSummary,
   AccordionDetails,
@@ -43,6 +44,7 @@ const MONTHS = [
 export default function PendingInstallmentsTab({
   pendingInstallments,
   onMarkAsPaid,
+  onMarkMonthAsPaid,
 }) {
   const [expandedMonth, setExpandedMonth] = useState(false);
 
@@ -131,6 +133,20 @@ export default function PendingInstallmentsTab({
                 variant="outlined"
                 size="small"
               />
+              <Button
+                size="small"
+                color="success"
+                variant="contained"
+                sx={{ ml: 1.5 }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (onMarkMonthAsPaid) {
+                    onMarkMonthAsPaid(monthGroup);
+                  }
+                }}
+              >
+                Confirmar todo el mes
+              </Button>
             </Box>
           </AccordionSummary>
           <AccordionDetails>
