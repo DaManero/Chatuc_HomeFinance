@@ -58,7 +58,6 @@ export default function ProjectionsTab({ pendingInstallments }) {
           totalARS: 0,
           totalUSD: 0,
           count: 0,
-          installments: [],
         };
       }
 
@@ -68,14 +67,6 @@ export default function ProjectionsTab({ pendingInstallments }) {
         acc[cardKey].totalARS += installment.amount;
       }
       acc[cardKey].count += 1;
-      acc[cardKey].installments.push({
-        id: installment.id,
-        description: installment.description,
-        amount: installment.amount,
-        currency,
-        installmentNumber: installment.installmentNumber,
-        totalInstallments: installment.totalInstallments,
-      });
       return acc;
     }, {});
 
@@ -186,114 +177,56 @@ export default function ProjectionsTab({ pendingInstallments }) {
                   }}
                 >
                   {monthData.cards.map((card, index) => (
-                    <Box key={index} sx={{ mb: 1.5 }}>
+                    <Box
+                      key={index}
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontSize: "0.875rem",
+                          color: "text.secondary",
+                          flex: 1,
+                          minWidth: 0,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {card.cardName}
+                      </Typography>
                       <Box
                         sx={{
                           display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "baseline",
+                          flexDirection: "column",
+                          alignItems: "flex-end",
+                          ml: 1,
                         }}
                       >
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                        {card.totalARS > 0 && (
                           <Typography
                             variant="body2"
-                            sx={{
-                              fontSize: "0.875rem",
-                              color: "text.secondary",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
+                            sx={{ fontWeight: 500, fontSize: "0.875rem" }}
                           >
-                            {card.cardName}
+                            {formatCurrency(card.totalARS, "ARS")}
                           </Typography>
+                        )}
+                        {card.totalUSD > 0 && (
                           <Typography
                             variant="caption"
-                            color="text.disabled"
-                            sx={{ fontSize: "0.7rem" }}
-                          >
-                            {card.count} cuota{card.count !== 1 ? "s" : ""}
-                          </Typography>
-                        </Box>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "flex-end",
-                            ml: 1,
-                          }}
-                        >
-                          {card.totalARS > 0 && (
-                            <Typography
-                              variant="body2"
-                              sx={{ fontWeight: 500, fontSize: "0.875rem" }}
-                            >
-                              {formatCurrency(card.totalARS, "ARS")}
-                            </Typography>
-                          )}
-                          {card.totalUSD > 0 && (
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                fontWeight: 400,
-                                fontSize: "0.75rem",
-                                color: "text.secondary",
-                              }}
-                            >
-                              {formatCurrency(card.totalUSD, "USD")}
-                            </Typography>
-                          )}
-                        </Box>
-                      </Box>
-
-                      <Box sx={{ mt: 0.75, pl: 0.5 }}>
-                        {card.installments.map((installment) => (
-                          <Box
-                            key={installment.id}
                             sx={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "flex-start",
-                              gap: 1,
-                              py: 0.35,
+                              fontSize: "0.75rem",
+                              color: "text.secondary",
                             }}
                           >
-                            <Box sx={{ minWidth: 0, flex: 1 }}>
-                              <Typography
-                                variant="caption"
-                                sx={{
-                                  display: "block",
-                                  color: "text.primary",
-                                  whiteSpace: "nowrap",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                }}
-                              >
-                                {installment.description}
-                              </Typography>
-                              <Typography
-                                variant="caption"
-                                color="text.disabled"
-                                sx={{ fontSize: "0.68rem" }}
-                              >
-                                Cuota {installment.installmentNumber}/
-                                {installment.totalInstallments}
-                              </Typography>
-                            </Box>
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                color: "text.secondary",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {formatCurrency(
-                                installment.amount,
-                                installment.currency,
-                              )}
-                            </Typography>
-                          </Box>
-                        ))}
+                            {formatCurrency(card.totalUSD, "USD")}
+                          </Typography>
+                        )}
                       </Box>
                     </Box>
                   ))}
