@@ -202,6 +202,15 @@ export default function CreditCardsPage() {
     }
   };
 
+  const refreshPendingInstallments = async () => {
+    try {
+      const res = await creditCardInstallmentService.getPendingInstallments();
+      setPendingInstallments(res || []);
+    } catch (error) {
+      console.error("Error refreshing pending installments:", error);
+    }
+  };
+
   // Credit Card handlers
   const handleSaveCard = async (data) => {
     try {
@@ -248,7 +257,7 @@ export default function CreditCardsPage() {
         toast.success("Gasto creado con cuotas generadas");
       }
       setExpenseDialog({ open: false, data: null });
-      loadTabData();
+      await Promise.all([loadTabData(), refreshPendingInstallments()]);
     } catch (error) {
       toast.error(error.response?.data?.message || "Error al guardar el gasto");
     }
@@ -259,7 +268,7 @@ export default function CreditCardsPage() {
     try {
       await creditCardExpenseService.deleteExpense(id);
       toast.success("Gasto eliminado");
-      loadTabData();
+      await Promise.all([loadTabData(), refreshPendingInstallments()]);
     } catch (error) {
       toast.error(
         error.response?.data?.message || "Error al eliminar el gasto",
