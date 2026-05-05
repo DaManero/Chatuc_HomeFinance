@@ -115,16 +115,6 @@ export default function CreditCardsPage() {
     return `${MONTHS[statementDate.getMonth()]}/${statementDate.getFullYear()}`;
   };
 
-  const getExpenseStatus = (expense) => {
-    const installmentsList = expense.installmentsList || [];
-    if (installmentsList.length === 0) return "Pendiente";
-
-    const paidCount = installmentsList.filter((item) => item.isPaid).length;
-    if (paidCount === 0) return "Pendiente";
-    if (paidCount === installmentsList.length) return "Pagado";
-    return "Parcial";
-  };
-
   useEffect(() => {
     if (isAuthenticated) {
       loadData();
@@ -474,14 +464,13 @@ export default function CreditCardsPage() {
                     <TableCell>Fecha Compra</TableCell>
                     <TableCell>Primer Resumen</TableCell>
                     <TableCell>Categoría</TableCell>
-                    <TableCell>Estado</TableCell>
                     <TableCell>Acciones</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {expenses.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} align="center">
+                      <TableCell colSpan={8} align="center">
                         No hay gastos registrados
                       </TableCell>
                     </TableRow>
@@ -502,19 +491,6 @@ export default function CreditCardsPage() {
                         </TableCell>
                         <TableCell>{formatStatementPeriod(expense)}</TableCell>
                         <TableCell>{expense.category?.name || "-"}</TableCell>
-                        <TableCell>
-                          <Chip
-                            size="small"
-                            label={getExpenseStatus(expense)}
-                            color={
-                              getExpenseStatus(expense) === "Pagado"
-                                ? "success"
-                                : getExpenseStatus(expense) === "Parcial"
-                                  ? "warning"
-                                  : "default"
-                            }
-                          />
-                        </TableCell>
                         <TableCell>
                           <IconButton
                             size="small"

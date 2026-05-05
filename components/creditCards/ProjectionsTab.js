@@ -58,6 +58,7 @@ export default function ProjectionsTab({ pendingInstallments }) {
           totalARS: 0,
           totalUSD: 0,
           count: 0,
+          installments: [],
         };
       }
 
@@ -67,6 +68,14 @@ export default function ProjectionsTab({ pendingInstallments }) {
         acc[cardKey].totalARS += installment.amount;
       }
       acc[cardKey].count += 1;
+      acc[cardKey].installments.push({
+        id: installment.id,
+        description: installment.description,
+        amount: installment.amount,
+        currency,
+        installmentNumber: installment.installmentNumber,
+        totalInstallments: installment.totalInstallments,
+      });
       return acc;
     }, {});
 
@@ -84,12 +93,12 @@ export default function ProjectionsTab({ pendingInstallments }) {
 
   const totalAllMonthsARS = projectionsByCard.reduce(
     (sum, month) => sum + month.totalARS,
-    0
+    0,
   );
 
   const totalAllMonthsUSD = projectionsByCard.reduce(
     (sum, month) => sum + month.totalUSD,
-    0
+    0,
   );
 
   return (
@@ -177,7 +186,7 @@ export default function ProjectionsTab({ pendingInstallments }) {
                   }}
                 >
                   {monthData.cards.map((card, index) => (
-                    <Box key={index} sx={{ mb: 1 }}>
+                    <Box key={index} sx={{ mb: 1.5 }}>
                       <Box
                         sx={{
                           display: "flex",
@@ -236,6 +245,56 @@ export default function ProjectionsTab({ pendingInstallments }) {
                           )}
                         </Box>
                       </Box>
+
+                      <Box sx={{ mt: 0.75, pl: 0.5 }}>
+                        {card.installments.map((installment) => (
+                          <Box
+                            key={installment.id}
+                            sx={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "flex-start",
+                              gap: 1,
+                              py: 0.35,
+                            }}
+                          >
+                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  display: "block",
+                                  color: "text.primary",
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
+                              >
+                                {installment.description}
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                color="text.disabled"
+                                sx={{ fontSize: "0.68rem" }}
+                              >
+                                Cuota {installment.installmentNumber}/
+                                {installment.totalInstallments}
+                              </Typography>
+                            </Box>
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                color: "text.secondary",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {formatCurrency(
+                                installment.amount,
+                                installment.currency,
+                              )}
+                            </Typography>
+                          </Box>
+                        ))}
+                      </Box>
                     </Box>
                   ))}
                   {(monthData.recurringChargesARS > 0 ||
@@ -277,7 +336,7 @@ export default function ProjectionsTab({ pendingInstallments }) {
                           >
                             {formatCurrency(
                               monthData.recurringChargesARS,
-                              "ARS"
+                              "ARS",
                             )}
                           </Typography>
                         )}
@@ -292,7 +351,7 @@ export default function ProjectionsTab({ pendingInstallments }) {
                           >
                             {formatCurrency(
                               monthData.recurringChargesUSD,
-                              "USD"
+                              "USD",
                             )}
                           </Typography>
                         )}

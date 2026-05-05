@@ -99,55 +99,89 @@ export default function PendingInstallmentsTab({
           }}
         >
           <AccordionSummary expandIcon={<ExpandMoreOutlined />}>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                width: "100%",
-                pr: 2,
-              }}
-            >
-              <Typography sx={{ flexGrow: 1, fontWeight: "medium" }}>
-                {MONTHS[monthGroup.monthNumber - 1]} {monthGroup.year}
-              </Typography>
-              <Box sx={{ display: "flex", gap: 1, mr: 2 }}>
-                {monthGroup.totalARS > 0 && (
+            {(() => {
+              const uniqueDescriptions = [
+                ...new Set(
+                  monthGroup.installments
+                    .map((installment) => installment.description)
+                    .filter(Boolean),
+                ),
+              ];
+              const previewDescriptions = uniqueDescriptions.slice(0, 2);
+              const remainingDescriptions =
+                uniqueDescriptions.length - previewDescriptions.length;
+
+              return (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    width: "100%",
+                    pr: 2,
+                  }}
+                >
+                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                    <Typography sx={{ fontWeight: "medium" }}>
+                      {MONTHS[monthGroup.monthNumber - 1]} {monthGroup.year}
+                    </Typography>
+                    {previewDescriptions.length > 0 && (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{
+                          display: "block",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {previewDescriptions.join(" · ")}
+                        {remainingDescriptions > 0
+                          ? ` +${remainingDescriptions} más`
+                          : ""}
+                      </Typography>
+                    )}
+                  </Box>
+                  <Box sx={{ display: "flex", gap: 1, mr: 2 }}>
+                    {monthGroup.totalARS > 0 && (
+                      <Chip
+                        label={formatCurrency(monthGroup.totalARS, "ARS")}
+                        color="primary"
+                        size="small"
+                      />
+                    )}
+                    {monthGroup.totalUSD > 0 && (
+                      <Chip
+                        label={formatCurrency(monthGroup.totalUSD, "USD")}
+                        color="secondary"
+                        size="small"
+                      />
+                    )}
+                  </Box>
                   <Chip
-                    label={formatCurrency(monthGroup.totalARS, "ARS")}
-                    color="primary"
+                    label={`${monthGroup.installments.length} cuota${
+                      monthGroup.installments.length !== 1 ? "s" : ""
+                    }`}
+                    variant="outlined"
                     size="small"
                   />
-                )}
-                {monthGroup.totalUSD > 0 && (
-                  <Chip
-                    label={formatCurrency(monthGroup.totalUSD, "USD")}
-                    color="secondary"
+                  <Button
                     size="small"
-                  />
-                )}
-              </Box>
-              <Chip
-                label={`${monthGroup.installments.length} cuota${
-                  monthGroup.installments.length !== 1 ? "s" : ""
-                }`}
-                variant="outlined"
-                size="small"
-              />
-              <Button
-                size="small"
-                color="success"
-                variant="contained"
-                sx={{ ml: 1.5 }}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  if (onMarkMonthAsPaid) {
-                    onMarkMonthAsPaid(monthGroup);
-                  }
-                }}
-              >
-                Confirmar todo el mes
-              </Button>
-            </Box>
+                    color="success"
+                    variant="contained"
+                    sx={{ ml: 1.5 }}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (onMarkMonthAsPaid) {
+                        onMarkMonthAsPaid(monthGroup);
+                      }
+                    }}
+                  >
+                    Confirmar todo el mes
+                  </Button>
+                </Box>
+              );
+            })()}
           </AccordionSummary>
           <AccordionDetails>
             <TableContainer>
