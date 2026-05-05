@@ -307,7 +307,9 @@ export default function CreditCardsPage() {
       loadData(); // Recargar todo para actualizar las tarjetas y el historial
     } catch (error) {
       toast.error(
-        error.response?.data?.message || "Error al registrar el pago",
+        error.response?.data?.error ||
+          error.response?.data?.message ||
+          "Error al registrar el pago",
       );
     }
   };

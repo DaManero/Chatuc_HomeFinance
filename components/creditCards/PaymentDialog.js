@@ -33,6 +33,14 @@ const MONTHS = [
   "Diciembre",
 ];
 
+function getCurrentMonthPeriod() {
+  const date = new Date();
+  return {
+    month: String(date.getMonth() + 1),
+    year: String(date.getFullYear()),
+  };
+}
+
 function getNextMonthPeriod() {
   const date = new Date();
   const nextMonthDate = new Date(date.getFullYear(), date.getMonth() + 1, 1);
@@ -56,28 +64,30 @@ export default function PaymentDialog({
     currency: "ARS",
     notes: "",
     creditCardId: "",
-    paymentMonth: getNextMonthPeriod().month,
-    paymentYear: getNextMonthPeriod().year,
+    paymentMonth: getCurrentMonthPeriod().month,
+    paymentYear: getCurrentMonthPeriod().year,
     paymentMethodId: "",
   });
   const [errors, setErrors] = useState({});
   const [projectionData, setProjectionData] = useState(null);
   const [projectionLoading, setProjectionLoading] = useState(false);
+  const [amountEdited, setAmountEdited] = useState(false);
 
   useEffect(() => {
-    const nextPeriod = getNextMonthPeriod();
+    const currentPeriod = getCurrentMonthPeriod();
     setFormData({
       amount: "",
       paymentDate: new Date().toISOString().split("T")[0],
       currency: "ARS",
       notes: "",
       creditCardId: projection?.creditCardId || creditCards[0]?.id || "",
-      paymentMonth: nextPeriod.month,
-      paymentYear: nextPeriod.year,
+      paymentMonth: currentPeriod.month,
+      paymentYear: currentPeriod.year,
       paymentMethodId: paymentMethods.length > 0 ? paymentMethods[0].id : "",
     });
     setProjectionData(null);
     setErrors({});
+    setAmountEdited(false);
   }, [projection, open, creditCards, paymentMethods]);
 
   useEffect(() => {
@@ -102,15 +112,17 @@ export default function PaymentDialog({
         });
 
         setProjectionData(projection);
-        const totalByCurrency =
-          formData.currency === "USD"
-            ? projection?.totals?.totalUSD
-            : projection?.totals?.totalARS;
+        if (!amountEdited) {
+          const totalByCurrency =
+            formData.currency === "USD"
+              ? projection?.totals?.totalUSD
+              : projection?.totals?.totalARS;
 
-        setFormData((prev) => ({
-          ...prev,
-          amount: totalByCurrency || "0.00",
-        }));
+          setFormData((prev) => ({
+            ...prev,
+            amount: totalByCurrency || "0.00",
+          }));
+        }
       } catch (error) {
         setProjectionData(null);
       } finally {
@@ -125,11 +137,15 @@ export default function PaymentDialog({
     formData.paymentMonth,
     formData.paymentYear,
     formData.currency,
+    amountEdited,
   ]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+    if (name === "amount") {
+      setAmountEdited(true);
+    }
     if (errors[name]) {
       setErrors({ ...errors, [name]: "" });
     }

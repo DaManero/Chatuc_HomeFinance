@@ -280,12 +280,6 @@ export async function createCreditCardPayment(req, res) {
       },
     });
 
-    if (installmentsToPay.length === 0 && recurringCharges.length === 0) {
-      return res.status(400).json({
-        error: "No hay consumos pendientes para ese período",
-      });
-    }
-
     let category = await models.Category.findOne({
       where: {
         name: "Tarjetas de credito",
