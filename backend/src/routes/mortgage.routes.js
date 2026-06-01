@@ -4,6 +4,7 @@ import {
   getInstallments,
   payInstallment,
   setupMortgage,
+  getMortgageIncomeRatio,
 } from "../controllers/mortgage.controller.js";
 import { authenticateToken } from "../middlewares/auth.middleware.js";
 
@@ -13,6 +14,7 @@ router.use(authenticateToken);
 
 router.get("/", getMortgage);
 router.get("/installments", getInstallments);
+router.get("/income-ratio", getMortgageIncomeRatio);
 router.post("/pay", payInstallment);
 router.post("/setup", setupMortgage);
 

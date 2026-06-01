@@ -398,3 +398,162 @@ export async function setupMortgage(req, res) {
     res.status(500).json({ error: "Error al configurar préstamo hipotecario" });
   }
 }
+
+// GET /mortgage/income-ratio?months=12
+// Devuelve, para cada uno de los últimos N meses con cuota pagada,
+// el monto de la cuota (ARS / USD) y los ingresos por sueldo del mismo mes
+// (sumando transacciones Ingreso cuyo nombre de categoría contenga
+// "sueldo" o "salario"), usando para la conversión a USD el dollarRate
+// registrado en la cuota de ese mes.
+export async function getMortgageIncomeRatio(req, res) {
+  try {
+    const userId = req.user.userId;
+    const monthsParam = parseInt(req.query.months, 10);
+    const months = [6, 12, 24].includes(monthsParam) ? monthsParam : 12;
+
+    const mortgage = await models.MortgageLoan.findOne({ where: { userId } });
+    if (!mortgage) {
+      return res.json({ data: [], months });
+    }
+
+    const paidInstallments = await models.MortgageInstallment.findAll({
+      where: {
+        mortgageLoanId: mortgage.id,
+        isPaid: true,
+        paidDate: { [Op.ne]: null },
+      },
+      order: [["paidDate", "ASC"]],
+    });
+
+    if (paidInstallments.length === 0) {
+      return res.json({ data: [], months });
+    }
+
+    // Agrupar cuotas por YYYY-MM de paidDate. Si hubiera más de una en el mismo
+    // mes, sumamos los importes y promediamos dollarRate ponderado por ARS.
+    const byMonth = new Map();
+    for (const inst of paidInstallments) {
+      const key = String(inst.paidDate).slice(0, 7); // YYYY-MM
+      const amountArs = parseFloat(inst.amountPaid || 0);
+      const dollarRate = inst.dollarRate ? parseFloat(inst.dollarRate) : null;
+      const amountUsd =
+        inst.amountUsd != null
+          ? parseFloat(inst.amountUsd)
+          : dollarRate
+            ? amountArs / dollarRate
+            : null;
+
+      const prev = byMonth.get(key) || {
+        installmentArs: 0,
+        installmentUsd: 0,
+        dollarRateNum: 0,
+        dollarRateDen: 0,
+      };
+      prev.installmentArs += amountArs;
+      if (amountUsd != null) prev.installmentUsd += amountUsd;
+      if (dollarRate) {
+        prev.dollarRateNum += dollarRate * amountArs;
+        prev.dollarRateDen += amountArs;
+      }
+      byMonth.set(key, prev);
+    }
+
+    // Tomar los últimos N meses con cuota pagada
+    const sortedKeys = Array.from(byMonth.keys()).sort();
+    const selectedKeys = sortedKeys.slice(-months);
+    if (selectedKeys.length === 0) {
+      return res.json({ data: [], months });
+    }
+
+    const rangeStart = `${selectedKeys[0]}-01`;
+    const lastKey = selectedKeys[selectedKeys.length - 1];
+    const [ly, lm] = lastKey.split("-").map(Number);
+    const lastDay = new Date(ly, lm, 0).getDate();
+    const rangeEnd = `${lastKey}-${String(lastDay).padStart(2, "0")}`;
+
+    // Categorías de "Sueldo" / "Salario" del usuario
+    const salaryCategories = await models.Category.findAll({
+      where: {
+        userId,
+        type: "Ingreso",
+        [Op.or]: [
+          { name: { [Op.iLike]: "%sueldo%" } },
+          { name: { [Op.iLike]: "%salario%" } },
+        ],
+      },
+      attributes: ["id"],
+    });
+    const salaryCategoryIds = salaryCategories.map((c) => c.id);
+
+    let salaryByMonth = new Map();
+    if (salaryCategoryIds.length > 0) {
+      const incomes = await models.Transaction.findAll({
+        where: {
+          userId,
+          type: "Ingreso",
+          categoryId: { [Op.in]: salaryCategoryIds },
+          date: { [Op.between]: [rangeStart, rangeEnd] },
+        },
+        attributes: ["amount", "date", "currency"],
+      });
+
+      for (const tx of incomes) {
+        const key = String(tx.date).slice(0, 7);
+        const prev = salaryByMonth.get(key) || { ars: 0, usd: 0 };
+        const amount = parseFloat(tx.amount);
+        if (tx.currency === "USD") prev.usd += amount;
+        else prev.ars += amount;
+        salaryByMonth.set(key, prev);
+      }
+    }
+
+    const monthLabel = (key) => {
+      const [y, m] = key.split("-").map(Number);
+      return new Date(y, m - 1, 1).toLocaleDateString("es-AR", {
+        month: "short",
+        year: "2-digit",
+      });
+    };
+
+    const data = selectedKeys.map((key) => {
+      const inst = byMonth.get(key);
+      const dollarRate =
+        inst.dollarRateDen > 0 ? inst.dollarRateNum / inst.dollarRateDen : null;
+
+      const salary = salaryByMonth.get(key) || { ars: 0, usd: 0 };
+      // Convertir todo a la misma moneda usando el dollarRate de la cuota del mes
+      const incomeArs = salary.ars + (dollarRate ? salary.usd * dollarRate : 0);
+      const incomeUsd = dollarRate
+        ? salary.ars / dollarRate + salary.usd
+        : salary.usd;
+
+      const ratioArs =
+        incomeArs > 0 ? (inst.installmentArs / incomeArs) * 100 : null;
+      const ratioUsd =
+        incomeUsd > 0 && inst.installmentUsd > 0
+          ? (inst.installmentUsd / incomeUsd) * 100
+          : null;
+
+      return {
+        month: key,
+        label: monthLabel(key),
+        installmentArs: Math.round(inst.installmentArs * 100) / 100,
+        installmentUsd: Math.round(inst.installmentUsd * 100) / 100,
+        incomeArs: Math.round(incomeArs * 100) / 100,
+        incomeUsd: Math.round(incomeUsd * 100) / 100,
+        dollarRate: dollarRate ? Math.round(dollarRate * 100) / 100 : null,
+        ratioArs: ratioArs != null ? Math.round(ratioArs * 100) / 100 : null,
+        ratioUsd: ratioUsd != null ? Math.round(ratioUsd * 100) / 100 : null,
+      };
+    });
+
+    res.json({
+      months,
+      hasSalaryCategories: salaryCategoryIds.length > 0,
+      data,
+    });
+  } catch (err) {
+    console.error("Error en getMortgageIncomeRatio:", err);
+    res.status(500).json({ error: "Error al calcular ratio cuota/ingresos" });
+  }
+}

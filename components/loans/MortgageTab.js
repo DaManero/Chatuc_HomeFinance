@@ -36,7 +36,7 @@ import {
 import {
   BarChart,
   Bar,
-  LineChart,
+  ComposedChart,
   Line,
   XAxis,
   YAxis,
@@ -63,10 +63,33 @@ export default function MortgageTab() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(12);
   const [showSetup, setShowSetup] = useState(false);
+  const [incomeRatio, setIncomeRatio] = useState(null);
+  const [incomeRatioMonths, setIncomeRatioMonths] = useState(12);
+  const [incomeRatioLoading, setIncomeRatioLoading] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadRatio = async () => {
+      try {
+        setIncomeRatioLoading(true);
+        const data = await mortgageService.getIncomeRatio(incomeRatioMonths);
+        if (!cancelled) setIncomeRatio(data);
+      } catch (err) {
+        if (!cancelled)
+          setIncomeRatio({ data: [], hasSalaryCategories: false });
+      } finally {
+        if (!cancelled) setIncomeRatioLoading(false);
+      }
+    };
+    loadRatio();
+    return () => {
+      cancelled = true;
+    };
+  }, [incomeRatioMonths]);
 
   const loadData = async () => {
     try {
@@ -178,26 +201,6 @@ export default function MortgageTab() {
         montoARS: parseFloat(i.amountPaid || 0),
       }));
   }, [installments]);
-
-  // Datos para gráfico de saldo restante
-  const balanceChartData = useMemo(() => {
-    if (!mortgage) return [];
-    let balance = parseFloat(mortgage.totalUva);
-    const data = [];
-
-    // Muestrear cada 12 cuotas para no saturar el gráfico
-    installments.forEach((i) => {
-      balance -= parseFloat(i.capitalUva);
-      if (i.installmentNumber % 12 === 0 || i.installmentNumber === 1) {
-        data.push({
-          cuota: `#${i.installmentNumber}`,
-          saldo: Math.max(0, Math.round(balance * 100) / 100),
-        });
-      }
-    });
-
-    return data;
-  }, [installments, mortgage]);
 
   const paginatedInstallments = installments.slice(
     page * rowsPerPage,
@@ -427,29 +430,191 @@ export default function MortgageTab() {
         </Grid>
       )}
 
-      {balanceChartData.length > 0 && (
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <Typography variant="subtitle1" gutterBottom fontWeight={600}>
-            Evolución del Saldo Restante (UVAs)
-          </Typography>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={balanceChartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="cuota" fontSize={12} />
-              <YAxis fontSize={12} />
-              <Tooltip />
-              <Line
-                type="monotone"
-                dataKey="saldo"
-                stroke="#f44336"
-                name="Saldo UVAs"
-                strokeWidth={2}
-                dot={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </Paper>
-      )}
+      {/* Cuota hipotecaria vs ingresos por sueldo */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 2,
+            mb: 2,
+          }}
+        >
+          <Box>
+            <Typography variant="subtitle1" fontWeight={600}>
+              Cuota vs Ingresos por Sueldo
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              % de la cuota sobre los sueldos mensuales (categorías con
+              &quot;sueldo&quot; o &quot;salario&quot;). USD calculado con la
+              cotización registrada al pagar la cuota de cada mes.
+            </Typography>
+          </Box>
+          <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+            <Typography variant="body2" color="text.secondary">
+              Rango:
+            </Typography>
+            {[6, 12, 24].map((m) => (
+              <Button
+                key={m}
+                size="small"
+                variant={incomeRatioMonths === m ? "contained" : "outlined"}
+                onClick={() => setIncomeRatioMonths(m)}
+              >
+                {m} m
+              </Button>
+            ))}
+          </Box>
+        </Box>
+
+        {incomeRatioLoading ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+            <CircularProgress size={28} />
+          </Box>
+        ) : !incomeRatio?.data?.length ? (
+          <Alert severity="info">
+            Aún no hay datos suficientes. Se necesitan cuotas pagadas e ingresos
+            del mes en categorías con nombre &quot;Sueldo&quot; o
+            &quot;Salario&quot;.
+          </Alert>
+        ) : (
+          <>
+            {!incomeRatio.hasSalaryCategories && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                No se encontraron categorías de tipo Ingreso cuyo nombre
+                contenga &quot;sueldo&quot; o &quot;salario&quot;. Creá una para
+                que el ratio refleje tus sueldos.
+              </Alert>
+            )}
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+                  En pesos (ARS)
+                </Typography>
+                <ResponsiveContainer width="100%" height={280}>
+                  <ComposedChart data={incomeRatio.data}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="label" fontSize={12} />
+                    <YAxis
+                      yAxisId="left"
+                      fontSize={12}
+                      tickFormatter={(v) =>
+                        new Intl.NumberFormat("es-AR", {
+                          notation: "compact",
+                        }).format(v)
+                      }
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      fontSize={12}
+                      tickFormatter={(v) => `${v}%`}
+                    />
+                    <Tooltip
+                      formatter={(value, name) => {
+                        if (name === "% Cuota / Ingresos")
+                          return [`${value}%`, name];
+                        return [
+                          new Intl.NumberFormat("es-AR", {
+                            style: "currency",
+                            currency: "ARS",
+                            maximumFractionDigits: 0,
+                          }).format(value),
+                          name,
+                        ];
+                      }}
+                    />
+                    <Legend />
+                    <Bar
+                      yAxisId="left"
+                      dataKey="incomeArs"
+                      fill="#4caf50"
+                      name="Ingresos"
+                    />
+                    <Bar
+                      yAxisId="left"
+                      dataKey="installmentArs"
+                      fill="#f44336"
+                      name="Cuota"
+                    />
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="ratioArs"
+                      stroke="#1976d2"
+                      strokeWidth={2}
+                      name="% Cuota / Ingresos"
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+                  En dólares (USD)
+                </Typography>
+                <ResponsiveContainer width="100%" height={280}>
+                  <ComposedChart data={incomeRatio.data}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="label" fontSize={12} />
+                    <YAxis
+                      yAxisId="left"
+                      fontSize={12}
+                      tickFormatter={(v) =>
+                        new Intl.NumberFormat("es-AR", {
+                          notation: "compact",
+                        }).format(v)
+                      }
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      fontSize={12}
+                      tickFormatter={(v) => `${v}%`}
+                    />
+                    <Tooltip
+                      formatter={(value, name) => {
+                        if (name === "% Cuota / Ingresos")
+                          return [`${value}%`, name];
+                        return [
+                          new Intl.NumberFormat("es-AR", {
+                            style: "currency",
+                            currency: "USD",
+                            maximumFractionDigits: 0,
+                          }).format(value),
+                          name,
+                        ];
+                      }}
+                    />
+                    <Legend />
+                    <Bar
+                      yAxisId="left"
+                      dataKey="incomeUsd"
+                      fill="#4caf50"
+                      name="Ingresos"
+                    />
+                    <Bar
+                      yAxisId="left"
+                      dataKey="installmentUsd"
+                      fill="#f44336"
+                      name="Cuota"
+                    />
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="ratioUsd"
+                      stroke="#1976d2"
+                      strokeWidth={2}
+                      name="% Cuota / Ingresos"
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </Grid>
+            </Grid>
+          </>
+        )}
+      </Paper>
 
       {/* Tabla de amortización */}
       <Paper>

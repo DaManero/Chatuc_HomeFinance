@@ -20,6 +20,11 @@ const mortgageService = {
     const response = await api.post("/mortgage/setup", data);
     return response.data;
   },
+
+  getIncomeRatio: async (months = 12) => {
+    const response = await api.get(`/mortgage/income-ratio?months=${months}`);
+    return response.data;
+  },
 };
 
 export default mortgageService;
