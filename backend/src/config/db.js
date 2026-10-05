@@ -21,6 +21,12 @@ export const sequelize = new Sequelize(
     dialect: "postgres",
     logging: false,
     dialectOptions,
+    pool: {
+      max: 20,
+      min: 5,
+      idle: 10000,
+      acquire: 30000,
+    },
   },
 );
 
