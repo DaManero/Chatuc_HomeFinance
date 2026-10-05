@@ -4,10 +4,13 @@ import { env } from "./env.js";
 const dialectOptions =
   process.env.NODE_ENV === "production"
     ? {
-        ssl: {
-          require: true,
-          rejectUnauthorized: false,
-        },
+        ssl:
+          process.env.DB_SSL !== "false"
+            ? {
+                require: true,
+                rejectUnauthorized: false,
+              }
+            : false,
       }
     : {};
 
